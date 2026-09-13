@@ -1,4 +1,4 @@
-// Cauldron of Answers — Cloudflare Worker + Durable Object backend.
+// Who Said? — Cloudflare Worker + Durable Object backend.
 // One Durable Object per room. State is a single JSON document; every
 // change is broadcast to all WebSocket subscribers of that room.
 

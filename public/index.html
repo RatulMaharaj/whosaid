@@ -25,6 +25,10 @@
   input,textarea{font-family:var(--body);font-size:24px;color:var(--bone);background:var(--ink);border:3px solid var(--bruise);padding:8px 10px;width:100%;outline:none}
   input:focus,textarea:focus{border-color:var(--moss)}
   textarea{resize:vertical;min-height:70px}
+  select{font-family:var(--body);font-size:20px;color:var(--bone);background:var(--ink);border:3px solid var(--bruise);padding:6px 8px;width:100%;margin-top:8px}
+  select:focus{border-color:var(--moss);outline:none}
+  .ans .right{color:var(--moss-dim)} .ans .wrong{color:var(--blood)}
+  .ans .guessers{font-size:18px;margin-top:6px;line-height:1.2}
   button{font-family:var(--px);font-size:11px;color:var(--ink);background:var(--moss);border:0;padding:12px 16px;cursor:pointer;
     box-shadow:0 4px 0 var(--moss-dim);position:relative;top:0;transition:top .05s, box-shadow .05s}
   button:hover{filter:brightness(1.08)} button:active{top:4px;box-shadow:0 0 0 var(--moss-dim)}
@@ -142,9 +146,10 @@ body{margin:0}
     </div>
 
     <div id="phaseVote" class="hidden" style="margin-top:16px">
-      <p class="muted" id="voteMsg">The cauldron has spat out the answers. Pick your favourite (not your own).</p>
+      <p class="muted" id="voteMsg">The cauldron has spat out the answers. Who said what? Match each one to a player.</p>
       <div class="answers" id="voteGrid"></div>
-      <p id="voteWait" class="muted hidden" style="margin-top:10px">Vote cast. Waiting for <span id="voteRemaining"></span>…</p>
+      <div class="row" style="margin-top:12px"><button id="guessBtn">Lock in my guesses</button></div>
+      <p id="voteWait" class="muted hidden" style="margin-top:10px">Guesses locked. Waiting for <span id="voteRemaining"></span>…</p>
     </div>
 
     <div id="phaseResults" class="hidden" style="margin-top:16px">
@@ -378,10 +383,10 @@ function render(){
     $('answerRemaining').textContent = ids.filter(id=>!answered(id)).map(pname).join(', ');
   }
   if(r.phase==='voting'){
-    if(renderedVoteRound!==r.round){ renderedVoteRound=r.round; myPick=null; puffSmoke(90); witchSays('The brew has spoken! Choose your favourite.'); renderVoteGrid(); }
-    const mine = voted(pid); show($('voteWait'), mine);
+    if(renderedVoteRound!==r.round){ renderedVoteRound=r.round; myPick=null; puffSmoke(90); witchSays('The brew has spoken! But who said what?'); renderVoteGrid(); }
+    const mine = voted(pid); show($('voteWait'), mine); show($('guessBtn'), !mine);
     $('voteRemaining').textContent = ids.filter(id=>!voted(id)).map(pname).join(', ');
-    $('voteMsg').textContent = mine?'Q: '+r.question:'Q: '+r.question+' — pick your favourite (not your own).';
+    $('voteMsg').textContent = 'Q: '+r.question+(mine?'':' — who said what? Match each answer to a player.');
   }
   if(r.phase==='results'){
     if(renderedResultRound!==r.round){ renderedResultRound=r.round; renderResults(); }
@@ -392,23 +397,34 @@ function render(){
 }
 
 function renderVoteGrid(){
-  const r=room; const ids = Object.keys(r.answers||{}).sort();
-  $('voteGrid').innerHTML = ids.map((id,i)=>`<button type="button" class="ans ${id===pid?'mine':''}" data-id="${id}" style="animation-delay:${i*90}ms">${esc(r.answers[id])}${id===pid?'<span class="tag">YOUR OWN. HANDS OFF.</span>':''}</button>`).join('');
-  $('voteGrid').querySelectorAll('.ans').forEach(el=>el.addEventListener('click', ()=>castVote(el.dataset.id)));
+  const r=room; const ids = Object.keys(r.answers||{}).sort(); const players=playerIds();
+  $('voteGrid').innerHTML = ids.map((id,i)=>`<div class="ans ${id===pid?'mine':''}" data-id="${id}" style="animation-delay:${i*90}ms;cursor:default">${esc(r.answers[id])}${id===pid?'<span class="tag">YOURS. NO GUESSING NEEDED.</span>':
+    `<select id="guess-${id}" data-for="${id}"><option value="">Who said this?</option>${players.filter(p=>p!==pid).map(p=>`<option value="${p}">${esc(pname(p))}</option>`).join('')}</select>`}</div>`).join('');
 }
-async function castVote(target){
-  if(target===pid){ toast('You cannot vote for yourself, sneaky.'); return; }
-  if(room.votes && room.votes[pid]!=null) return;
-  myPick=target; $('voteGrid').querySelectorAll('.ans').forEach(el=>el.classList.toggle('picked', el.dataset.id===target));
-  await roomRef.update({ votes:{[pid]:target} });
+async function lockGuesses(){
+  const r=room; if(r.votes && r.votes[pid]!=null) return;
+  const guesses={}; const selects=[...$('voteGrid').querySelectorAll('select')];
+  for(const sel of selects){ if(!sel.value){ toast('Match every answer first.'); sel.focus(); return; } guesses[sel.dataset.for]=sel.value; }
+  $('guessBtn').disabled=true;
+  try{ await roomRef.update({ votes:{[pid]:guesses} }); toast('Guesses locked!'); } finally { $('guessBtn').disabled=false; }
 }
-function tally(){ const t={}; for(const v of Object.values(room.votes||{})) t[v]=(t[v]||0)+1; return t; }
+// score: +100 per correct guess; author gets +50 for every player they fooled
+function tally(){
+  const r=room; const pts={}, correctOn={}, fooledOn={};
+  for(const [guesser,g] of Object.entries(r.votes||{})){ if(!g||typeof g!=='object') continue;
+    for(const [author,guess] of Object.entries(g)){ if(author===guesser) continue;
+      if(guess===author){ pts[guesser]=(pts[guesser]||0)+100; (correctOn[author]=correctOn[author]||[]).push(guesser); }
+      else { pts[author]=(pts[author]||0)+50; (fooledOn[author]=fooledOn[author]||[]).push(guesser); } } }
+  return {pts, correctOn, fooledOn};
+}
 function renderResults(){
-  const r=room, t=tally(); const ids=Object.keys(r.answers||{}); const max=Math.max(0,...Object.values(t));
-  ids.sort((a,b)=>(t[b]||0)-(t[a]||0));
-  $('resultGrid').innerHTML = ids.map((id,i)=>`<div class="ans ${(t[id]||0)===max&&max>0?'winner':''}" style="animation-delay:${i*90}ms;cursor:default">${esc(r.answers[id])}<span class="tag">— ${esc(pname(id))}</span><span class="votes">${t[id]||0} ${t[id]===1?'VOTE':'VOTES'}</span></div>`).join('');
-  const winners = ids.filter(id=>(t[id]||0)===max && max>0).map(pname);
-  witchSays(winners.length? (winners.length>1? `A tie! ${winners.join(' and ')} share the glory.` : `${winners[0]} wins the round. The cauldron approves.`) : 'Nobody voted? Cowards.');
+  const r=room, {pts, correctOn, fooledOn}=tally(); const ids=Object.keys(r.answers||{}).sort();
+  $('resultGrid').innerHTML = ids.map((id,i)=>{ const c=correctOn[id]||[], f=fooledOn[id]||[];
+    return `<div class="ans ${f.length>c.length?'winner':''}" style="animation-delay:${i*90}ms;cursor:default">${esc(r.answers[id])}<span class="tag">— ${esc(pname(id))} SAID IT</span>
+    <div class="guessers">${c.length?`<span class="right">✔ ${c.map(pname).map(esc).join(', ')}</span>`:''}${c.length&&f.length?'<br>':''}${f.length?`<span class="wrong">✘ fooled ${f.map(pname).map(esc).join(', ')}</span>`:''}</div>
+    <span class="votes">+${pts[id]||0}</span></div>`; }).join('');
+  const best=Math.max(0,...Object.values(pts)); const winners=Object.keys(pts).filter(p=>pts[p]===best&&best>0).map(pname);
+  witchSays(winners.length? (winners.length>1? `${winners.join(' and ')} share the round!` : `${winners[0]} takes the round. The cauldron approves.`) : 'Nobody scored? The spirits are unimpressed.');
 }
 function renderBoard(){
   const ids=playerIds().sort((a,b)=>(room.players[b].score||0)-(room.players[a].score||0));
@@ -425,7 +441,7 @@ async function hostAutoAdvance(){
     if(r.phase==='answering' && ids.length>0 && ids.every(id=>r.answers&&r.answers[id]!=null)){
       await hardSet({ phase:'voting', votes:{} });
     } else if(r.phase==='voting' && ids.every(id=>r.votes&&r.votes[id]!=null)){
-      const t=tally(); const players={}; for(const id of ids) players[id]={ score:(r.players[id].score||0) + (t[id]||0)*100 };
+      const {pts}=tally(); const players={}; for(const id of ids) players[id]={ score:(r.players[id].score||0) + (pts[id]||0) };
       const merged={}; for(const id of ids) merged[id]=Object.assign({},r.players[id],players[id]); await hardSet({ phase:'results', players:merged });
     }
   } finally { advancing=false; }
@@ -439,6 +455,7 @@ $('leaveBtn').onclick = async ()=>{ if(room && room.players && Object.keys(room.
 $('startBtn').onclick = ()=> hardSet({ phase:'asking', round:1, question:'', answers:{}, votes:{} });
 $('askBtn').onclick = async ()=>{ const q=$('questionInput').value.trim(); if(!q) return; $('questionInput').value=''; await hardSet({ phase:'answering', question:q, answers:{}, votes:{} }); };
 $('answerBtn').onclick = async ()=>{ const a=$('answerInput').value.trim(); if(!a) return; $('answerInput').value=''; await roomRef.update({ answers:{[pid]:a} }); toast('Tossed in!'); };
+$('guessBtn').onclick = lockGuesses;
 $('nextBtn').onclick = ()=> hardSet({ phase:'asking', round:(room.round||0)+1, question:'', answers:{}, votes:{} });
 $('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') (codeFromHash()||$('codeInput').value)?$('joinBtn').click():$('createBtn').click(); });
 $('codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('joinBtn').click(); });
