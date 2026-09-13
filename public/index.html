@@ -93,8 +93,6 @@
 
   /* avatars */
   .avbuild{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;margin-top:12px}
-  #avModal{position:fixed;inset:0;z-index:10;background:rgba(10,5,18,.8);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
-  .avdialog{width:min(100%,720px);max-height:100%;overflow:auto}
   .avprev{background:var(--ink);border:3px solid var(--bruise);padding:8px;display:flex;align-items:center;justify-content:center}
   .avprev canvas{animation:hover 2s ease-in-out infinite}
   .avopts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
@@ -136,11 +134,11 @@ body{margin:0}
     <div class="row">
       <input id="nameInput" class="grow" maxlength="20" placeholder="Your name" autocomplete="off">
     </div>
-    <div class="row" style="margin-top:12px;align-items:center">
-      <div class="avprev"><canvas id="avPreview" class="av" width="96" height="144"></canvas></div>
-      <div class="row" style="flex-direction:column;align-items:flex-start">
-        <button id="avOpen">Customise character</button>
-        <button id="avRandomQuick" class="ghost">Randomise</button>
+    <div class="avbuild">
+      <div class="avprev"><canvas id="avPreview" class="av" width="120" height="180"></canvas></div>
+      <div>
+        <div class="avopts" id="avOpts"></div>
+        <div class="row" style="margin-top:12px"><button id="avRandom" class="ember">Randomise everything</button></div>
       </div>
     </div>
     <div class="row" style="margin-top:12px">
@@ -198,18 +196,6 @@ body{margin:0}
   <p class="status" id="connStatus">SUMMONING THE SPIRITS…</p>
 </div>
 <div class="toast" id="toast"></div>
-<div id="avModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="avTitle">
-  <div class="card avdialog">
-    <h2 id="avTitle">Make your face</h2>
-    <div class="avbuild">
-      <div class="avprev"><canvas id="avModalPreview" class="av" width="120" height="180"></canvas></div>
-      <div>
-        <div class="avopts" id="avOpts"></div>
-        <div class="row" style="margin-top:12px"><button id="avRandom" class="ember">Randomise everything</button><button id="avDone">Done</button></div>
-      </div>
-    </div>
-  </div>
-</div>
 <div id="me" class="hidden"><canvas id="meCanvas" class="av" width="72" height="108"></canvas><span class="tag" id="meName"></span></div>
 
 <script>
@@ -240,17 +226,21 @@ function witchSays(text, smoke=true){
 const AV = {
   // 12 x 18 character: face rows 0-11, body 12-17. S skin, T shirt, H hair, W eye white, I iris, E dark line, M mouth, G glasses, A earring, P blush, F freckle
   face:["............","............","...SSSSSS...","..SSSSSSSS..","..SSSSSSSS..","..SSSSSSSS..",".SSSSSSSSSS.",".SSSSSSSSSS.","..SSSSSSSS..","..SSSSSSSS..","...SSSSSS...","....SSSS....",".....SS.....","...TTTTTT...","..TTTTTTTT..","..TTTTTTTT..","..TSTTTTST..","...LL..LL...","...LL..LL..."],
-  eyes:{ // rows 4-6
-    round:["............","...WW..WW...","...II..II..."],
-    big:["..WWW..WWW..","..WIW..WIW..","..WWW..WWW.."],
-    sleepy:["............","...EE..EE...","...II..II..."],
-    wink:["............","...WW..EEE..","...II......."],
-    lashes:["...E.E.E.E..","...WW..WW...","...II..II..."],
-    dots:["............","............","...II..II..."],
+  eyes:{ // rows 4-6, 3x3 per eye
+    big:["..WWW..WWW..","..WII..WII..","..WII..WII.."],
+    round:["..WWW..WWW..","..WIW..WIW..","..WWW..WWW.."],
+    sparkle:["..WWW..WWW..","..IWI..IWI..","..III..III.."],
+    sleepy:["..EEE..EEE..","..WII..WII..","..WII..WII.."],
+    wink:["..WWW.......","..WII..EEE..","..WII......."],
+    lashes:["..E.E..E.E..","..WWW..WWW..","..WII..WII.."],
+    happy:["..EEE..EEE..","..E.E..E.E..","............"],
   },
   mouths:{ // rows 8-9
-    smile:["...E....E...","....EEEE...."], flat:["............","....EEEE...."], grin:["....EEEE....","....MMMM...."], smirk:["............",".....EEE...."], pout:["............","....MM......"], surprised:["....EEE.....","....EME....."],
+    smile:["...E....E...","....EEEE...."], grin:["....EEEE....","....MMMM...."], lips:["...MMMMMM...","....MMMM...."], teeth:["....EEEE....","....WWWW...."],
+    tongue:["....EEEE....","....EMM....."], surprised:["....EEE.....","....EME....."], pout:["............","....MMMM...."], smirk:["............",".....EEE...."],
+    flat:["............","....EEEE...."], frown:["....EEEE....","...E....E..."],
   },
+  lipCols:['#8a1f2e','#d8434e','#ff6bd6','#6a2f98','#0a0512','#ff8c2a'],
   hair:{ // rows 0-10
     none:[],
     short:["............","...HHHHHH...","..HHHHHHHH..",".HHHHHHHHHH.",".HH......HH."],
@@ -264,13 +254,14 @@ const AV = {
     pigtails:["............","...HHHHHH...","..HHHHHHHH..",".HHHHHHHHHH.","HHH......HHH","HH........HH","HH........HH","HH........HH",".H........H."],
     cap:["....HHHH....","...HHHHHH...","..HHHHHHHH..","HHHHHHHHHHHH","............"],
   },
-  glasses:{ // rows 4-6
-    none:[], round:["............","..GGG..GGG..","..G.GGGG.G..","..GGG..GGG.."], square:["............","..GGGG.GGGG.","..G..GGG..G.","..GGGG.GGGG."], shades:["............","..GGG..GGG..","..GGGGGGGGG.","...GG..GG..."],
+  glasses:{ // rows 3-6
+    none:[], round:[".GGGGG.GGGGG",".G...GGG...G",".G...G.G...G",".GGGGG.GGGGG"], halfrim:["............",".GGGGG.GGGGG",".G...G.G...G","............"], shades:[".GGGGG.GGGGG",".GGGGGGGGGGG",".GGGGG.GGGGG","..GGG...GGG."],
   },
   earrings:{ // rows 7-9, ears at cols 1 and 10
     none:[], studs:[[1,7],[10,7]], hoops:[[1,7],[10,7],[1,8],[10,8],[2,8],[9,8]], dangly:[[1,7],[10,7],[1,8],[10,8],[1,9],[10,9]],
   },
-  marks:{ none:[], freckles:[[3,7,'F'],[5,7,'F'],[6,7,'F'],[8,7,'F']], blush:[[3,7,'P'],[4,7,'P'],[7,7,'P'],[8,7,'P']], beauty:[[8,8,'F']] },
+  marks:{ none:[], freckles:[[4,7,'F'],[5,7,'F'],[6,7,'F'],[7,7,'F']], beauty:[[9,8,'F']] },
+  blush:['none','#ff8c9a','#ff5c7a','#ff8c2a','#c9a0ff','#f0a070','#7bd63a'],
   skins:['#f0c8a0','#e0a878','#c68642','#8d5524','#5c3a1e','#b7e08a','#8ec5ff','#c9a0ff'],
   hairCols:['#0a0512','#3b2314','#8a5a2b','#d9a05b','#f3e9d2','#d8434e','#7bd63a','#5b9cff','#ff6bd6','#9a9aa8'],
   eyeCols:['#3b2314','#1f4e8a','#1e6b3a','#7bd63a','#c9a0ff','#0a0512','#ff8c2a'],
@@ -279,18 +270,19 @@ const AV = {
   glassCols:['#0a0512','#ffd23f','#d8434e','#f3e9d2'],
 };
 const avKeys = {eyes:Object.keys(AV.eyes), mouth:Object.keys(AV.mouths), hair:Object.keys(AV.hair), glasses:Object.keys(AV.glasses), earrings:Object.keys(AV.earrings), mark:Object.keys(AV.marks)};
-function randomAvatar(){ const r=a=>a[Math.random()*a.length|0]; return {skin:r(AV.skins), hair:r(avKeys.hair), hairCol:r(AV.hairCols), eyes:r(avKeys.eyes), eyeCol:r(AV.eyeCols), mouth:r(avKeys.mouth), glasses:Math.random()<.6?'none':r(avKeys.glasses), glassCol:r(AV.glassCols), earrings:r(avKeys.earrings), jewel:r(AV.jewel), mark:r(avKeys.mark), shirt:r(AV.shirts)}; }
+function randomAvatar(){ const r=a=>a[Math.random()*a.length|0]; return {skin:r(AV.skins), hair:r(avKeys.hair), hairCol:r(AV.hairCols), eyes:r(avKeys.eyes), eyeCol:r(AV.eyeCols), mouth:r(avKeys.mouth), lipCol:r(AV.lipCols), glasses:Math.random()<.6?'none':r(avKeys.glasses), glassCol:r(AV.glassCols), earrings:r(avKeys.earrings), jewel:r(AV.jewel), mark:r(avKeys.mark), blush:Math.random()<.5?'none':r(AV.blush), shirt:r(AV.shirts)}; }
 function normAvatar(a){ const d=randomAvatar(); if(!a||typeof a!=='object') return d; const pick=(v,list,def)=>list.includes(v)?v:def;
-  return {skin:pick(a.skin,AV.skins,d.skin), hair:pick(a.hair,avKeys.hair,'short'), hairCol:pick(a.hairCol,AV.hairCols,d.hairCol), eyes:pick(a.eyes,avKeys.eyes,'round'), eyeCol:pick(a.eyeCol,AV.eyeCols,d.eyeCol), mouth:pick(a.mouth,avKeys.mouth,'smile'), glasses:pick(a.glasses,avKeys.glasses,'none'), glassCol:pick(a.glassCol,AV.glassCols,'#0a0512'), earrings:pick(a.earrings,avKeys.earrings,'none'), jewel:pick(a.jewel,AV.jewel,'#ffd23f'), mark:pick(a.mark,avKeys.mark,'none'), shirt:pick(a.shirt,AV.shirts,d.shirt)}; }
+  return {skin:pick(a.skin,AV.skins,d.skin), hair:pick(a.hair,avKeys.hair,'short'), hairCol:pick(a.hairCol,AV.hairCols,d.hairCol), eyes:pick(a.eyes,avKeys.eyes,'round'), eyeCol:pick(a.eyeCol,AV.eyeCols,d.eyeCol), mouth:pick(a.mouth,avKeys.mouth,'smile'), lipCol:pick(a.lipCol,AV.lipCols,'#8a1f2e'), glasses:pick(a.glasses,avKeys.glasses,'none'), glassCol:pick(a.glassCol,AV.glassCols,'#0a0512'), earrings:pick(a.earrings,avKeys.earrings,'none'), jewel:pick(a.jewel,AV.jewel,'#ffd23f'), mark:pick(a.mark,avKeys.mark,'none'), blush:pick(a.blush,AV.blush,'none'), shirt:pick(a.shirt,AV.shirts,d.shirt)}; }
 function drawAvatar(ctx, a, x, y, s){
-  a=normAvatar(a); const col={S:a.skin,T:a.shirt,H:a.hairCol,W:'#f3e9d2',I:a.eyeCol,E:'#0a0512',M:'#8a1f2e',G:a.glassCol,A:a.jewel,P:'#ff8c9a',F:'#8a5a2b',L:'#1e1030'};
+  a=normAvatar(a); const col={S:a.skin,T:a.shirt,H:a.hairCol,W:'#f3e9d2',I:a.eyeCol,E:'#0a0512',M:a.lipCol,G:a.glassCol,A:a.jewel,P:a.blush,F:'#8a5a2b',L:'#1e1030'};
   const put=(cx,cy,ch)=>{ if(ch==='.'||!col[ch]) return; ctx.fillStyle=col[ch]; ctx.fillRect(x+cx*s,y+cy*s,s,s); };
   AV.face.forEach((row,r)=>[...row].forEach((ch,c)=>put(c,r,ch)));
   AV.eyes[a.eyes].forEach((row,i)=>[...row].forEach((ch,c)=>put(c,4+i,ch)));
+  if(a.blush!=='none') for(const c of [2,3,8,9]) put(c,7,'P');
   AV.marks[a.mark].forEach(([c,r,ch])=>put(c,r,ch));
   AV.mouths[a.mouth].forEach((row,i)=>[...row].forEach((ch,c)=>put(c,8+i,ch)));
   AV.hair[a.hair].forEach((row,r)=>[...row].forEach((ch,c)=>put(c,r,ch)));
-  AV.glasses[a.glasses].forEach((row,i)=>[...row].forEach((ch,c)=>put(c,4+i,ch)));
+  AV.glasses[a.glasses].forEach((row,i)=>[...row].forEach((ch,c)=>put(c,3+i,ch)));
   AV.earrings[a.earrings].forEach(([c,r])=>put(c,r,'A'));
 }
 function avatarCanvas(a, s=3, cls='av'){ const c=document.createElement('canvas'); c.width=12*s; c.height=18*s; c.className=cls; drawAvatar(c.getContext('2d'), a, 0, 0, s); return c; }
@@ -300,20 +292,15 @@ function hydrateAvatars(root){ root.querySelectorAll('canvas[data-av]').forEach(
 let myAvatar = normAvatar((()=>{ try{ return JSON.parse(store.get('coven.avatar')) }catch{ return null } })());
 function saveAvatar(){ store.set('coven.avatar', JSON.stringify(myAvatar)); drawMe(); }
 function drawMe(){
-  for(const [id,sc] of [['avPreview',8],['avModalPreview',10]]){ const pv=$(id); pv.getContext('2d').clearRect(0,0,pv.width,pv.height); drawAvatar(pv.getContext('2d'), myAvatar, 0, 0, sc); }
+  const pv=$('avPreview'); pv.getContext('2d').clearRect(0,0,pv.width,pv.height); drawAvatar(pv.getContext('2d'), myAvatar, 0, 0, 10);
   const mc=$('meCanvas'); mc.getContext('2d').clearRect(0,0,mc.width,mc.height); drawAvatar(mc.getContext('2d'), myAvatar, 0, 0, 6);
   $('meName').textContent = myName || 'you';
 }
-const AV_FIELDS = [['hair','Hair',avKeys.hair],['hairCol','Hair colour',AV.hairCols],['eyes','Eyes',avKeys.eyes],['eyeCol','Eye colour',AV.eyeCols],['mouth','Mouth',avKeys.mouth],['glasses','Glasses',avKeys.glasses],['glassCol','Frames',AV.glassCols],['earrings','Earrings',avKeys.earrings],['jewel','Metal',AV.jewel],['mark','Marks',avKeys.mark],['skin','Skin',AV.skins],['shirt','Shirt',AV.shirts]];
+const AV_FIELDS = [['hair','Hair',avKeys.hair],['hairCol','Hair colour',AV.hairCols],['eyes','Eyes',avKeys.eyes],['eyeCol','Eye colour',AV.eyeCols],['mouth','Mouth',avKeys.mouth],['lipCol','Lips',AV.lipCols],['glasses','Glasses',avKeys.glasses],['glassCol','Frames',AV.glassCols],['earrings','Earrings',avKeys.earrings],['jewel','Metal',AV.jewel],['blush','Blush',AV.blush],['mark','Marks',avKeys.mark],['skin','Skin',AV.skins],['shirt','Shirt',AV.shirts]];
 function buildAvatarUI(){
   $('avOpts').innerHTML = AV_FIELDS.map(([k,label])=>`<div class="avopt"><button type="button" class="ghost" data-k="${k}" data-d="-1">◀</button><span>${label}</span><button type="button" class="ghost" data-k="${k}" data-d="1">▶</button></div>`).join('');
   $('avOpts').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ const [k,,list]=AV_FIELDS.find(f=>f[0]===b.dataset.k); const i=list.indexOf(myAvatar[k]); myAvatar[k]=list[(i+ +b.dataset.d+list.length)%list.length]; saveAvatar(); }));
   $('avRandom').addEventListener('click',()=>{ myAvatar=randomAvatar(); saveAvatar(); });
-  $('avRandomQuick').addEventListener('click',()=>{ myAvatar=randomAvatar(); saveAvatar(); });
-  $('avOpen').addEventListener('click',()=>{ show($('avModal'),true); $('avDone').focus(); });
-  $('avDone').addEventListener('click',()=>{ show($('avModal'),false); $('avOpen').focus(); });
-  $('avModal').addEventListener('click',e=>{ if(e.target===$('avModal')) show($('avModal'),false); });
-  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !$('avModal').classList.contains('hidden')) show($('avModal'),false); });
   drawMe();
 }
 buildAvatarUI();
