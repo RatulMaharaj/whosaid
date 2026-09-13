@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cauldron of Answers</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+  :root{
+    --night:#140b24; --night2:#241340; --bruise:#5b2a86; --moss:#7bd63a; --moss-dim:#3d7a1e;
+    --ember:#ff8c2a; --bone:#f3e9d2; --bone-dim:#b9ad93; --ink:#0a0512; --blood:#d8434e;
+    --px: 'Press Start 2P', 'Courier New', monospace; --body:'VT323','Courier New',monospace;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--night);color:var(--bone);font-family:var(--body);font-size:22px;line-height:1.25;
+    padding-block:16px;padding-inline:16px;min-height:100vh;
+    background-image:radial-gradient(ellipse at 50% 0%, #2c1a4d 0%, var(--night) 60%);
+    image-rendering:pixelated;}
+  #stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .wrap{position:relative;z-index:1;max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+  h1{font-family:var(--px);font-size:clamp(14px,3.6vw,24px);color:var(--moss);text-shadow:3px 3px 0 var(--ink);margin:0;text-wrap:balance;line-height:1.5}
+  h2{font-family:var(--px);font-size:12px;color:var(--ember);margin:0 0 8px;letter-spacing:1px;text-transform:uppercase}
+  .px{font-family:var(--px);font-size:11px;line-height:1.7}
+  .card{background:var(--night2);border:4px solid var(--ink);box-shadow:0 0 0 2px var(--bruise), 6px 6px 0 var(--ink);padding:16px}
+  input,textarea{font-family:var(--body);font-size:24px;color:var(--bone);background:var(--ink);border:3px solid var(--bruise);padding:8px 10px;width:100%;outline:none}
+  input:focus,textarea:focus{border-color:var(--moss)}
+  textarea{resize:vertical;min-height:70px}
+  button{font-family:var(--px);font-size:11px;color:var(--ink);background:var(--moss);border:0;padding:12px 16px;cursor:pointer;
+    box-shadow:0 4px 0 var(--moss-dim);position:relative;top:0;transition:top .05s, box-shadow .05s}
+  button:hover{filter:brightness(1.08)} button:active{top:4px;box-shadow:0 0 0 var(--moss-dim)}
+  button:disabled{background:#4a4a55;box-shadow:0 4px 0 #2a2a33;color:#9a9aa8;cursor:not-allowed}
+  button.ember{background:var(--ember);box-shadow:0 4px 0 #a34f0e} button.ember:active{box-shadow:none}
+  button.ghost{background:transparent;color:var(--bone-dim);box-shadow:none;border:2px solid var(--bruise)}
+  button:focus-visible,input:focus-visible{outline:3px dashed var(--ember);outline-offset:2px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .grow{flex:1 1 160px}
+  .muted{color:var(--bone-dim)}
+  .hidden{display:none!important}
+
+  /* stage */
+  .stage{position:relative;height:300px;overflow:visible}
+  #scene{width:100%;height:100%;display:block}
+  #bubble{position:absolute;left:50%;top:6px;transform:translateX(-50%);width:min(92%,560px);
+    background:var(--bone);color:var(--ink);border:4px solid var(--ink);padding:14px 16px;font-size:26px;line-height:1.15;text-align:center;
+    box-shadow:5px 5px 0 var(--ink);opacity:0;transition:opacity .4s}
+  #bubble.show{opacity:1}
+  #bubble::after{content:"";position:absolute;left:24px;bottom:-16px;border:8px solid transparent;border-top-color:var(--ink);border-bottom:0}
+  #bubble .who{font-family:var(--px);font-size:9px;color:var(--bruise);display:block;margin-bottom:8px;letter-spacing:1px}
+
+  /* players */
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--ink);border:2px solid var(--bruise);padding:6px 10px;font-size:20px;display:inline-flex;gap:8px;align-items:center}
+  .chip.done{border-color:var(--moss)} .chip .dot{width:10px;height:10px;background:var(--bone-dim)} .chip.done .dot{background:var(--moss)}
+  .chip.host .dot{background:var(--ember)}
+
+  /* answers thrown from cauldron */
+  .answers{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .ans{background:var(--bone);color:var(--ink);border:4px solid var(--ink);box-shadow:4px 4px 0 var(--ink);padding:12px;font-size:24px;line-height:1.1;
+    cursor:pointer;position:relative;opacity:0;transform:translateY(-140px) rotate(-12deg) scale(.4);
+    animation:fling .7s cubic-bezier(.2,1.4,.5,1) forwards;text-align:left;font-family:var(--body)}
+  .ans:nth-child(2n){animation-name:fling2}
+  .ans:hover{background:#fff8e6}
+  .ans.mine{cursor:not-allowed;opacity:.55!important;background:var(--bone-dim)}
+  .ans.picked{outline:4px solid var(--ember);outline-offset:2px}
+  .ans .tag{font-family:var(--px);font-size:8px;color:var(--bruise);display:block;margin-top:8px}
+  .ans .votes{position:absolute;top:-14px;right:-10px;background:var(--ember);color:var(--ink);font-family:var(--px);font-size:10px;padding:6px 8px;border:3px solid var(--ink)}
+  .ans.winner{background:#fff3c4;outline:4px solid var(--moss);outline-offset:2px}
+  @keyframes fling{0%{opacity:0;transform:translateY(-140px) rotate(-12deg) scale(.4)}60%{opacity:1;transform:translateY(8px) rotate(3deg) scale(1.02)}100%{opacity:1;transform:none}}
+  @keyframes fling2{0%{opacity:0;transform:translateY(-140px) rotate(14deg) scale(.4)}60%{opacity:1;transform:translateY(8px) rotate(-3deg) scale(1.02)}100%{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.ans{animation:none;opacity:1;transform:none}}
+
+  /* leaderboard */
+  table{width:100%;border-collapse:collapse;font-size:22px;font-variant-numeric:tabular-nums}
+  td,th{padding:6px 8px;border-bottom:2px solid var(--bruise);text-align:left}
+  th{font-family:var(--px);font-size:9px;color:var(--ember);text-transform:uppercase}
+  td.n{text-align:right;color:var(--moss);font-family:var(--px);font-size:11px}
+  tr.me td{color:var(--ember)}
+  .crown{color:var(--ember)}
+
+  .status{font-family:var(--px);font-size:10px;color:var(--bone-dim);line-height:1.8}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);border:3px solid var(--moss);color:var(--bone);padding:10px 14px;z-index:5;font-size:20px;opacity:0;transition:opacity .3s;pointer-events:none}
+  .toast.show{opacity:1}
+  .blink{animation:blink 1s steps(2) infinite} @keyframes blink{50%{opacity:.2}}
+  @media (max-width:520px){.stage{height:250px} #bubble{font-size:21px}}
+body{margin:0}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="wrap">
+  <h1>Cauldron of Answers</h1>
+
+  <div class="stage card" style="padding:0;background:linear-gradient(#1b0f33,#0e071c)">
+    <canvas id="scene"></canvas>
+    <div id="bubble"><span class="who">THE WITCH</span><span id="bubbleText">Welcome, mortals. Name yourselves and gather round my cauldron.</span></div>
+  </div>
+
+  <!-- LOBBY / ENTRY -->
+  <section id="entry" class="card">
+    <h2>Who dares approach?</h2>
+    <div class="row">
+      <input id="nameInput" class="grow" maxlength="20" placeholder="Your name" autocomplete="off">
+    </div>
+    <div class="row" style="margin-top:12px">
+      <input id="roomNameInput" class="grow" maxlength="30" placeholder="Name your coven (room)" autocomplete="off">
+      <button id="createBtn">Create room</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <input id="codeInput" class="grow" maxlength="6" placeholder="Room code (e.g. TOAD)" autocomplete="off" style="text-transform:uppercase">
+      <button id="joinBtn" class="ember">Join room</button>
+    </div>
+    <p id="entryMsg" class="muted" style="margin:12px 0 0"></p>
+  </section>
+
+  <!-- ROOM -->
+  <section id="room" class="card hidden">
+    <div class="row" style="justify-content:space-between">
+      <div><h2 id="roomTitle">Coven</h2><span class="status">CODE <span id="roomCode" style="color:var(--moss)"></span> · ROUND <span id="roundNo">0</span></span></div>
+      <div class="row"><button id="copyBtn" class="ghost">Copy invite link</button><button id="leaveBtn" class="ghost">Leave</button></div>
+    </div>
+    <div class="chips" id="players" style="margin-top:14px"></div>
+
+    <div id="phaseLobby" style="margin-top:16px">
+      <p class="muted" id="lobbyMsg">Waiting for the host to begin. Share the invite link so others can join.</p>
+      <button id="startBtn" class="hidden">Begin the ritual</button>
+    </div>
+
+    <div id="phaseAsk" class="hidden" style="margin-top:16px">
+      <p id="askMsg" class="muted">The host is brewing a question…</p>
+      <div id="askForm" class="hidden">
+        <textarea id="questionInput" maxlength="200" placeholder="Ask the coven something. e.g. What's the worst possible name for a pet toad?"></textarea>
+        <div class="row" style="margin-top:10px"><button id="askBtn" class="ember">Drop it in the cauldron</button></div>
+      </div>
+    </div>
+
+    <div id="phaseAnswer" class="hidden" style="margin-top:16px">
+      <div id="answerForm">
+        <textarea id="answerInput" maxlength="140" placeholder="Your answer…"></textarea>
+        <div class="row" style="margin-top:10px"><button id="answerBtn">Toss it in</button></div>
+      </div>
+      <p id="answerWait" class="muted hidden">Your answer is bubbling away. Waiting for <span id="answerRemaining"></span>…</p>
+    </div>
+
+    <div id="phaseVote" class="hidden" style="margin-top:16px">
+      <p class="muted" id="voteMsg">The cauldron has spat out the answers. Pick your favourite (not your own).</p>
+      <div class="answers" id="voteGrid"></div>
+      <p id="voteWait" class="muted hidden" style="margin-top:10px">Vote cast. Waiting for <span id="voteRemaining"></span>…</p>
+    </div>
+
+    <div id="phaseResults" class="hidden" style="margin-top:16px">
+      <div class="answers" id="resultGrid"></div>
+      <div class="row" style="margin-top:14px"><button id="nextBtn" class="ember hidden">Next round</button><span id="nextMsg" class="muted">The host decides when the next round begins.</span></div>
+    </div>
+  </section>
+
+  <section id="board" class="card hidden">
+    <h2>Leaderboard</h2>
+    <table><thead><tr><th>#</th><th>Witch-in-training</th><th style="text-align:right">Points</th></tr></thead><tbody id="boardBody"></tbody></table>
+  </section>
+
+  <p class="status" id="connStatus">SUMMONING THE SPIRITS…</p>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+// ---------- identity ----------
+const store = { get(k){ try{return localStorage.getItem(k)}catch{return null} }, set(k,v){ try{localStorage.setItem(k,v)}catch{} } };
+let pid = store.get('coven.pid'); if(!pid){ pid = 'p' + Math.random().toString(36).slice(2,10); store.set('coven.pid', pid); }
+let myName = store.get('coven.name') || '';
+const $ = id => document.getElementById(id);
+$('nameInput').value = myName;
+
+// ---------- helpers ----------
+const toast = (m) => { const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const codeFromHash = () => { const m = location.hash.match(/room=([A-Z0-9]{3,6})/i); return m ? m[1].toUpperCase() : null; };
+const genCode = () => { const L='BCDFGHJKLMNPQRSTVWXZ', V='AEIOU'; return L[Math.random()*L.length|0]+V[Math.random()*V.length|0]+L[Math.random()*L.length|0]+V[Math.random()*V.length|0]; };
+const show = (el, on) => el.classList.toggle('hidden', !on);
+let lastLine = '';
+function witchSays(text, smoke=true){
+  if(text === lastLine) return; lastLine = text;
+  const b=$('bubble'); b.classList.remove('show');
+  if(smoke) puffSmoke();
+  setTimeout(()=>{ $('bubbleText').textContent=text; b.classList.add('show'); }, smoke?350:0);
+}
+
+// ---------- pixel art scene ----------
+const scene = $('scene'), ctx = scene.getContext('2d');
+const PAL = {k:'#0a0512',h:'#2a1a4a',H:'#3c2769',f:'#b7e08a',F:'#8fbf62',e:'#0a0512',n:'#7bd63a',r:'#4a1f6e',R:'#6a2f98',b:'#1e1030',c:'#3a3a48',C:'#20202c',g:'#7bd63a',G:'#c9ff8a',w:'#f3e9d2',o:'#ff8c2a',y:'#ffd23f',s:'#8a5a2b'};
+// witch: 20x28
+const WITCH = [
+"...........k........",
+"..........kkk.......",
+"..........khk.......",
+".........khhhk......",
+".........khhhk......",
+"........khhhhhk.....",
+"........khhhhhk.....",
+".......khhhhhhhk....",
+".......khhHhhhhk....",
+"......khhhHhhhhhk...",
+".....kkkkkkkkkkkkk..",
+"...kkkkkkkkkkkkkkkkk",
+"........kffffk......",
+"........fkffkf......",
+"........ffffff......",
+".........ffff.......",
+"........kRRRRk......",
+".......kRRRRRRk.....",
+"......fkRRRRRRkf....",
+".....ffkRRRRRRkff...",
+".......kRRRRRRk.s...",
+".......kRRRRRRk.s...",
+"......kRRRRRRRRks...",
+"......kRRRRRRRRks...",
+".....kRRRRRRRRRks...",
+".....kRRRRRRRRRRks..",
+"....kkkkkkkkkkkkk...",
+"....kk.........kk...",
+];
+// cauldron: 26x18
+const CAULD = [
+"..........................",
+"..ccccccccccccccccccccc...",
+".cCCCCCCCCCCCCCCCCCCCCCc..",
+".cCggggggggggggggggggggCc.",
+".cCGgGggGgggGgGggGgggGgCc.",
+"..cccccccccccccccccccccc..",
+"..cCCCCCCCCCCCCCCCCCCCCc..",
+"..cCCCCCCCCCCCCCCCCCCCCc..",
+"ccccCCCCCCCCCCCCCCCCCCcccc",
+"c..cCCCCCCCCCCCCCCCCCCc..c",
+"...cCCCCCCCCCCCCCCCCCCc...",
+"...cCCCCCCCCCCCCCCCCCCc...",
+"....cCCCCCCCCCCCCCCCCc....",
+".....cCCCCCCCCCCCCCCc.....",
+"......cccccccccccccc......",
+".......cc........cc.......",
+"......cccc......cccc......",
+"..........................",
+];
+function drawSprite(rows, x, y, s){ for(let r=0;r<rows.length;r++) for(let c=0;c<rows[r].length;c++){ const ch=rows[r][c]; if(ch==='.') continue; ctx.fillStyle=PAL[ch]||'#f0f'; ctx.fillRect(x+c*s, y+r*s, s, s); } }
+
+let W=0,H=0,S=4, smoke=[], bubbles=[], flames=[], t=0, fireBoost=0;
+function resize(){ const r=scene.parentElement.getBoundingClientRect(); W=scene.width=Math.floor(r.width); H=scene.height=Math.floor(r.height); S = W<520?3:4; }
+window.addEventListener('resize', resize); resize();
+function puffSmoke(n=60){ const cx = cauldronX()+13*S, cy = cauldronY()+3*S; for(let i=0;i<n;i++) smoke.push({x:cx+(Math.random()-.5)*20*S, y:cy, vx:(Math.random()-.5)*1.2, vy:-(1+Math.random()*2), r:S*(2+Math.random()*3), a:.9, hue:Math.random()<.5?'#c9ff8a':'#f3e9d2'}); fireBoost=40; }
+function cauldronX(){ return Math.floor(W*0.62 - 13*S); }
+function cauldronY(){ return H - 18*S - 6; }
+function witchX(){ return Math.floor(W*0.28 - 10*S); }
+function tick(){
+  t++; ctx.clearRect(0,0,W,H);
+  // ground
+  ctx.fillStyle='#0e071c'; ctx.fillRect(0,H-8,W,8);
+  // witch (bobs)
+  const wy = H - 28*S - 4 + Math.round(Math.sin(t/25)*2)*1;
+  drawSprite(WITCH, witchX(), wy, S);
+  // wand sparkle
+  if(t%10<5){ ctx.fillStyle=PAL.y; ctx.fillRect(witchX()+16*S, wy+18*S, S, S); }
+  // flames under cauldron
+  if(Math.random()<.6+fireBoost/60) flames.push({x:cauldronX()+ (6+Math.random()*14)*S, y:H-10, life:14+Math.random()*10, r:S*(1+Math.random())});
+  for(const f of flames){ f.life--; f.y-=1.6; ctx.fillStyle=f.life>12?PAL.y:PAL.o; ctx.fillRect(Math.round(f.x/S)*S, Math.round(f.y/S)*S, f.r, f.r); }
+  flames=flames.filter(f=>f.life>0);
+  if(fireBoost>0) fireBoost--;
+  drawSprite(CAULD, cauldronX(), cauldronY(), S);
+  // bubbles on brew
+  if(Math.random()<.25) bubbles.push({x:cauldronX()+(4+Math.random()*18)*S, y:cauldronY()+3*S, life:20});
+  for(const b of bubbles){ b.life--; b.y-=.4; ctx.fillStyle=b.life>10?PAL.G:PAL.w; ctx.fillRect(Math.round(b.x/S)*S, Math.round(b.y/S)*S, S, S); }
+  bubbles=bubbles.filter(b=>b.life>0);
+  // ambient wisps
+  if(Math.random()<.15) smoke.push({x:cauldronX()+(6+Math.random()*14)*S, y:cauldronY()+2*S, vx:(Math.random()-.5)*.3, vy:-(.4+Math.random()*.4), r:S*2, a:.35, hue:'#c9ff8a'});
+  for(const p of smoke){ p.x+=p.vx+Math.sin((t+p.y)/15)*.3; p.y+=p.vy; p.a-=.008; p.r+=.15; ctx.globalAlpha=Math.max(0,p.a); ctx.fillStyle=p.hue; ctx.fillRect(Math.round(p.x/S)*S, Math.round(p.y/S)*S, Math.round(p.r/S)*S||S, Math.round(p.r/S)*S||S); }
+  ctx.globalAlpha=1; smoke=smoke.filter(p=>p.a>0 && p.y>-40);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// stars
+(()=>{ const c=$('stars'), x=c.getContext('2d'); const st=[]; const rs=()=>{c.width=innerWidth;c.height=innerHeight; st.length=0; for(let i=0;i<90;i++) st.push([Math.random()*c.width, Math.random()*c.height*.7, Math.random()*100]);}; rs(); addEventListener('resize',rs);
+  (function loop(){ x.clearRect(0,0,c.width,c.height); for(const s of st){ s[2]++; x.globalAlpha=.3+.5*Math.abs(Math.sin(s[2]/40)); x.fillStyle='#f3e9d2'; x.fillRect(s[0],s[1],2,2);} requestAnimationFrame(loop); })(); })();
+
+
+// ---------- network adapter (Cloudflare Worker + Durable Object) ----------
+const net = {
+  doc(path){
+    const code = path.split('/')[1]; const base = '/api/rooms/'+code;
+    return {
+      async get(){ const r = await fetch(base); if(r.status===404) return {exists:false, data:()=>undefined}; const j=await r.json(); return {exists:true, data:()=>j.state}; },
+      async set(data, opts={}){ const r = await fetch(base+(opts.ifAbsent?'?ifAbsent=1':''), {method:'PUT', headers:{'content-type':'application/json'}, body:JSON.stringify(data)}); if(!r.ok) throw new Error('set failed '+r.status); },
+      async update(patch){ const r = await fetch(base, {method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify(patch)}); if(!r.ok) throw new Error('update failed '+r.status); },
+      onSnapshot(next, error){
+        let ws, closed=false, retry=800, ping;
+        const open = ()=>{
+          if(closed) return;
+          const proto = location.protocol==='https:'?'wss':'ws';
+          ws = new WebSocket(`${proto}://${location.host}${base}/ws`);
+          ws.onopen = ()=>{ retry=800; setStatus(room && room.hostId===pid?'YOU ARE THE HOST ★ · LIVE':'LIVE · CONNECTED TO THE COVEN'); ping=setInterval(()=>{ try{ws.send('ping')}catch{} }, 25000); };
+          ws.onmessage = e=>{ if(e.data==='pong') return; const m=JSON.parse(e.data); if(m.type==='state') next({exists:!!m.state, data:()=>m.state||undefined}); };
+          ws.onclose = ()=>{ clearInterval(ping); if(closed) return; setStatus('RECONNECTING TO THE SPIRITS…'); setTimeout(open, retry); retry=Math.min(retry*2, 8000); };
+          ws.onerror = ()=>{ try{ws.close()}catch{} };
+        };
+        open();
+        return ()=>{ closed=true; clearInterval(ping); try{ws&&ws.close()}catch{} };
+      }
+    };
+  }
+};
+
+// ---------- game state ----------
+let db=null, roomRef=null, unsub=null, room=null, code=null, myPick=null, renderedVoteRound=-1, renderedResultRound=-1;
+
+function setStatus(s){ $('connStatus').textContent = s; }
+
+async function createRoom(){
+  const name = $('nameInput').value.trim(); const rn = $('roomNameInput').value.trim() || 'The Coven';
+  if(!name){ $('entryMsg').textContent='Tell the witch your name first.'; return; }
+  saveName(name);
+  for(let i=0;i<5;i++){
+    const c = genCode(); const ref = db.doc('rooms/'+c);
+    const snap = await ref.get(); if(snap.exists) continue;
+    try{ await ref.set({ name:rn, hostId:pid, phase:'lobby', round:0, question:'', createdAt:Date.now(), players:{[pid]:{name, score:0, joinedAt:Date.now()}}, answers:{}, votes:{} }, {ifAbsent:true}); }catch{ continue; }
+    location.hash = 'room='+c; enterRoom(c); return;
+  }
+  $('entryMsg').textContent='The spirits are busy. Try again.';
+}
+async function joinRoom(c){
+  const name = $('nameInput').value.trim();
+  if(!name){ $('entryMsg').textContent='Tell the witch your name first.'; $('nameInput').focus(); return; }
+  saveName(name);
+  const ref = db.doc('rooms/'+c); const snap = await ref.get();
+  if(!snap.exists){ $('entryMsg').textContent='No coven answers to the code '+c+'.'; return; }
+  const d = snap.data(); const existing = d.players && d.players[pid];
+  await ref.update({ players:{[pid]:{ name, score: existing?existing.score:0, joinedAt: existing?existing.joinedAt:Date.now() }} });
+  location.hash='room='+c; enterRoom(c);
+}
+function saveName(n){ myName=n; store.set('coven.name', n); }
+
+function enterRoom(c){
+  code=c; roomRef=db.doc('rooms/'+c); if(unsub) unsub();
+  show($('entry'),false); show($('room'),true); show($('board'),true);
+  $('roomCode').textContent=c;
+  unsub = roomRef.onSnapshot(snap=>{
+    if(!snap.exists){ toast('The coven has dissolved.'); leaveRoom(); return; }
+    room = snap.data(); render(); hostAutoAdvance();
+  }, e=>{ setStatus('LOST CONTACT WITH THE SPIRITS ('+e.code+')'); });
+}
+function leaveRoom(){ if(unsub) unsub(); unsub=null; room=null; code=null; location.hash=''; show($('entry'),true); show($('room'),false); show($('board'),false); witchSays('Back so soon? Name yourself.'); }
+
+const isHost = () => room && room.hostId===pid;
+const playerIds = () => Object.keys(room.players||{}).sort((a,b)=>(room.players[a].joinedAt||0)-(room.players[b].joinedAt||0));
+const pname = id => (room.players[id]||{}).name || '???';
+
+function render(){
+  const r=room; if(!r) return;
+  $('roomTitle').textContent=r.name; $('roundNo').textContent=r.round;
+  const ids=playerIds();
+  const answered = id => r.answers && r.answers[id]!=null;
+  const voted = id => r.votes && r.votes[id]!=null;
+  $('players').innerHTML = ids.map(id=>{
+    const done = r.phase==='answering'?answered(id): r.phase==='voting'?voted(id):false;
+    return `<span class="chip ${done?'done':''} ${id===r.hostId?'host':''}"><span class="dot"></span>${esc(pname(id))}${id===pid?' (you)':''}${id===r.hostId?' ★':''}</span>`;
+  }).join('');
+  show($('phaseLobby'), r.phase==='lobby'); show($('phaseAsk'), r.phase==='asking'); show($('phaseAnswer'), r.phase==='answering'); show($('phaseVote'), r.phase==='voting'); show($('phaseResults'), r.phase==='results');
+
+  if(r.phase==='lobby'){
+    show($('startBtn'), isHost()); $('lobbyMsg').textContent = isHost()? (ids.length<2?'Share the invite link. You need at least 2 players... 3 is better.':'Everyone here? Begin when ready.') : 'Waiting for '+pname(r.hostId)+' to begin. Share the invite link so others can join.';
+    $('startBtn').disabled = ids.length<2;
+    witchSays(ids.length<2?'A coven of one? Fetch me more mortals.':`${ids.length} souls gathered. Delicious.`, false);
+  }
+  if(r.phase==='asking'){
+    show($('askForm'), isHost()); $('askMsg').textContent = isHost()?'You hold the ladle. Ask the coven something.':pname(r.hostId)+' is brewing a question…';
+    witchSays(isHost()?'Whisper a question into my cauldron.':'Hush. '+pname(r.hostId)+' is brewing something…', false);
+  }
+  if(r.phase==='answering'){
+    witchSays(r.question);
+    const mine = answered(pid); show($('answerForm'), !mine); show($('answerWait'), mine);
+    $('answerRemaining').textContent = ids.filter(id=>!answered(id)).map(pname).join(', ');
+  }
+  if(r.phase==='voting'){
+    if(renderedVoteRound!==r.round){ renderedVoteRound=r.round; myPick=null; puffSmoke(90); witchSays('The brew has spoken! Choose your favourite.'); renderVoteGrid(); }
+    const mine = voted(pid); show($('voteWait'), mine);
+    $('voteRemaining').textContent = ids.filter(id=>!voted(id)).map(pname).join(', ');
+    $('voteMsg').textContent = mine?'Q: '+r.question:'Q: '+r.question+' — pick your favourite (not your own).';
+  }
+  if(r.phase==='results'){
+    if(renderedResultRound!==r.round){ renderedResultRound=r.round; renderResults(); }
+    show($('nextBtn'), isHost()); show($('nextMsg'), !isHost());
+  }
+  renderBoard();
+  setStatus(isHost()?'YOU ARE THE HOST ★ · LIVE':'LIVE · CONNECTED TO THE COVEN');
+}
+
+function renderVoteGrid(){
+  const r=room; const ids = Object.keys(r.answers||{}).sort();
+  $('voteGrid').innerHTML = ids.map((id,i)=>`<button type="button" class="ans ${id===pid?'mine':''}" data-id="${id}" style="animation-delay:${i*90}ms">${esc(r.answers[id])}${id===pid?'<span class="tag">YOUR OWN. HANDS OFF.</span>':''}</button>`).join('');
+  $('voteGrid').querySelectorAll('.ans').forEach(el=>el.addEventListener('click', ()=>castVote(el.dataset.id)));
+}
+async function castVote(target){
+  if(target===pid){ toast('You cannot vote for yourself, sneaky.'); return; }
+  if(room.votes && room.votes[pid]!=null) return;
+  myPick=target; $('voteGrid').querySelectorAll('.ans').forEach(el=>el.classList.toggle('picked', el.dataset.id===target));
+  await roomRef.update({ votes:{[pid]:target} });
+}
+function tally(){ const t={}; for(const v of Object.values(room.votes||{})) t[v]=(t[v]||0)+1; return t; }
+function renderResults(){
+  const r=room, t=tally(); const ids=Object.keys(r.answers||{}); const max=Math.max(0,...Object.values(t));
+  ids.sort((a,b)=>(t[b]||0)-(t[a]||0));
+  $('resultGrid').innerHTML = ids.map((id,i)=>`<div class="ans ${(t[id]||0)===max&&max>0?'winner':''}" style="animation-delay:${i*90}ms;cursor:default">${esc(r.answers[id])}<span class="tag">— ${esc(pname(id))}</span><span class="votes">${t[id]||0} ${t[id]===1?'VOTE':'VOTES'}</span></div>`).join('');
+  const winners = ids.filter(id=>(t[id]||0)===max && max>0).map(pname);
+  witchSays(winners.length? (winners.length>1? `A tie! ${winners.join(' and ')} share the glory.` : `${winners[0]} wins the round. The cauldron approves.`) : 'Nobody voted? Cowards.');
+}
+function renderBoard(){
+  const ids=playerIds().sort((a,b)=>(room.players[b].score||0)-(room.players[a].score||0));
+  $('boardBody').innerHTML = ids.map((id,i)=>`<tr class="${id===pid?'me':''}"><td class="px">${i+1}</td><td>${i===0&&(room.players[id].score||0)>0?'<span class="crown">♛</span> ':''}${esc(pname(id))}</td><td class="n">${room.players[id].score||0}</td></tr>`).join('');
+}
+
+// host drives phase transitions when everyone has acted
+let advancing=false;
+const hardSet = patch => roomRef.set(Object.assign({}, room, patch));
+async function hostAutoAdvance(){
+  if(!isHost() || advancing) return; const r=room; const ids=playerIds();
+  try{
+    advancing=true;
+    if(r.phase==='answering' && ids.length>0 && ids.every(id=>r.answers&&r.answers[id]!=null)){
+      await hardSet({ phase:'voting', votes:{} });
+    } else if(r.phase==='voting' && ids.every(id=>r.votes&&r.votes[id]!=null)){
+      const t=tally(); const players={}; for(const id of ids) players[id]={ score:(r.players[id].score||0) + (t[id]||0)*100 };
+      const merged={}; for(const id of ids) merged[id]=Object.assign({},r.players[id],players[id]); await hardSet({ phase:'results', players:merged });
+    }
+  } finally { advancing=false; }
+}
+
+// ---------- wiring ----------
+$('createBtn').onclick = createRoom;
+$('joinBtn').onclick = ()=>{ const c=$('codeInput').value.trim().toUpperCase(); if(!c){ $('entryMsg').textContent='Enter a room code.'; return;} joinRoom(c); };
+$('copyBtn').onclick = async ()=>{ const url = location.origin+location.pathname+'#room='+code; try{ await navigator.clipboard.writeText(url); toast('Invite link copied. Code: '+code); }catch{ prompt('Copy this invite link', url); } };
+$('leaveBtn').onclick = async ()=>{ if(room && room.players && Object.keys(room.players).length>1){ const p={}; for(const id of Object.keys(room.players)) if(id!==pid) p[id]=room.players[id]; const hostId = room.hostId===pid ? Object.keys(p)[0] : room.hostId; await hardSet({players:p, hostId}).catch(()=>{}); } leaveRoom(); };
+$('startBtn').onclick = ()=> hardSet({ phase:'asking', round:1, question:'', answers:{}, votes:{} });
+$('askBtn').onclick = async ()=>{ const q=$('questionInput').value.trim(); if(!q) return; $('questionInput').value=''; await hardSet({ phase:'answering', question:q, answers:{}, votes:{} }); };
+$('answerBtn').onclick = async ()=>{ const a=$('answerInput').value.trim(); if(!a) return; $('answerInput').value=''; await roomRef.update({ answers:{[pid]:a} }); toast('Tossed in!'); };
+$('nextBtn').onclick = ()=> hardSet({ phase:'asking', round:(room.round||0)+1, question:'', answers:{}, votes:{} });
+$('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') (codeFromHash()||$('codeInput').value)?$('joinBtn').click():$('createBtn').click(); });
+$('codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('joinBtn').click(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey && e.target.tagName==='TEXTAREA'){ e.preventDefault(); if(e.target.id==='answerInput') $('answerBtn').click(); if(e.target.id==='questionInput') $('askBtn').click(); } });
+
+// ---------- boot ----------
+(async ()=>{
+  const c = codeFromHash(); if(c){ $('codeInput').value=c; $('entryMsg').textContent='You were invited to coven '+c+'. Enter your name and join.'; }
+  db = net;
+  setStatus('THE SPIRITS ARE LISTENING.');
+  if(c && myName){ joinRoom(c); }
+})();
+})();
+</script>
+</body>
+</html>
