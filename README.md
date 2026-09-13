@@ -4,8 +4,8 @@ A realtime multiplayer party game. An 8-bit witch asks the coven a question, eve
 
 ## How it plays
 
-1. Enter your name and create a named room. Copy the invite link and send it to friends.
-2. The host writes a question. Smoke rises and the witch reveals it to everyone.
+1. Enter your name, build your 8-bit character, and create a named room. Copy the invite link and send it to friends.
+2. The host starts a round. The witch draws a random question from the bank in `public/index.html` (no repeats until the bank runs out). Smoke rises and the question appears.
 3. Every player answers. When all answers are in, voting starts automatically.
 4. Guess who said each answer. A correct guess is worth 100 points, and an author earns 50 for every player their answer fooled.
 5. The host starts the next round.

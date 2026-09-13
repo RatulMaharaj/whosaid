@@ -91,6 +91,25 @@
   tr.me td{color:var(--ember)}
   .crown{color:var(--ember)}
 
+  /* avatars */
+  .avbuild{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-top:12px}
+  .avprev{background:var(--ink);border:3px solid var(--bruise);padding:8px;display:flex;align-items:center;justify-content:center}
+  .avprev canvas{animation:hover 2s ease-in-out infinite}
+  .avopts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .avopt{display:flex;align-items:center;gap:4px;font-size:19px}
+  .avopt span{flex:1;text-align:center;color:var(--bone-dim);font-family:var(--px);font-size:8px;text-transform:uppercase}
+  .avopt button{padding:8px 10px;font-size:10px}
+  .av{image-rendering:pixelated;vertical-align:middle}
+  .chip .av{width:24px;height:28px}
+  td .av{width:28px;height:32px;margin-right:8px}
+  .ans .author{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .ans .author .av{width:36px;height:42px}
+  #me{position:fixed;right:18px;bottom:18px;z-index:4;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
+  #me canvas{animation:hover 2.4s ease-in-out infinite;filter:drop-shadow(0 6px 0 rgba(0,0,0,.5))}
+  #me .tag{font-family:var(--px);font-size:8px;color:var(--bone);background:var(--ink);padding:4px 6px;border:2px solid var(--bruise)}
+  @keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @media (prefers-reduced-motion:reduce){#me canvas,.avprev canvas{animation:none}}
+  @media (max-width:520px){.avbuild{grid-template-columns:1fr} #me{right:8px;bottom:8px;transform:scale(.7);transform-origin:bottom right}}
   .status{font-family:var(--px);font-size:10px;color:var(--bone-dim);line-height:1.8}
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);border:3px solid var(--moss);color:var(--bone);padding:10px 14px;z-index:5;font-size:20px;opacity:0;transition:opacity .3s;pointer-events:none}
   .toast.show{opacity:1}
@@ -115,6 +134,13 @@ body{margin:0}
     <div class="row">
       <input id="nameInput" class="grow" maxlength="20" placeholder="Your name" autocomplete="off">
     </div>
+    <div class="avbuild">
+      <div class="avprev"><canvas id="avPreview" class="av" width="96" height="112"></canvas></div>
+      <div>
+        <div class="avopts" id="avOpts"></div>
+        <div class="row" style="margin-top:8px"><button id="avRandom" class="ghost">Randomise</button></div>
+      </div>
+    </div>
     <div class="row" style="margin-top:12px">
       <input id="roomNameInput" class="grow" maxlength="30" placeholder="Name your coven (room)" autocomplete="off">
       <button id="createBtn">Create room</button>
@@ -135,17 +161,10 @@ body{margin:0}
     <div class="chips" id="players" style="margin-top:14px"></div>
 
     <div id="phaseLobby" style="margin-top:16px">
-      <p class="muted" id="lobbyMsg">Waiting for the host to begin. Share the invite link so others can join.</p>
+      <p class="muted" id="lobbyMsg">Waiting for the host to begin. The witch picks the questions.</p>
       <button id="startBtn" class="hidden">Begin the ritual</button>
     </div>
 
-    <div id="phaseAsk" class="hidden" style="margin-top:16px">
-      <p id="askMsg" class="muted">The host is brewing a question…</p>
-      <div id="askForm" class="hidden">
-        <textarea id="questionInput" maxlength="200" placeholder="Ask the coven something. e.g. What's the worst possible name for a pet toad?"></textarea>
-        <div class="row" style="margin-top:10px"><button id="askBtn" class="ember">Drop it in the cauldron</button></div>
-      </div>
-    </div>
 
     <div id="phaseAnswer" class="hidden" style="margin-top:16px">
       <div id="answerForm">
@@ -153,6 +172,7 @@ body{margin:0}
         <div class="row" style="margin-top:10px"><button id="answerBtn">Toss it in</button></div>
       </div>
       <p id="answerWait" class="muted hidden">Your answer is bubbling away. Waiting for <span id="answerRemaining"></span>…</p>
+      <div class="row" style="margin-top:10px"><button id="skipBtn" class="ghost hidden">Brew a different question</button></div>
     </div>
 
     <div id="phaseVote" class="hidden" style="margin-top:16px">
@@ -176,6 +196,7 @@ body{margin:0}
   <p class="status" id="connStatus">SUMMONING THE SPIRITS…</p>
 </div>
 <div class="toast" id="toast"></div>
+<div id="me" class="hidden"><canvas id="meCanvas" class="av" width="72" height="84"></canvas><span class="tag" id="meName"></span></div>
 
 <script>
 (() => {
@@ -199,6 +220,49 @@ function witchSays(text, smoke=true){
   if(smoke) puffSmoke();
   setTimeout(()=>{ $('bubbleText').textContent=text; b.classList.add('show'); }, smoke?350:0);
 }
+
+
+// ---------- avatars ----------
+const AV = {
+  body:["............","............","............","....SSSS....","...SSSSSS...","...SSSSSS...","...SSSSSS...","....SSSS....","..RRRRRRRR..",".RRRRRRRRRR.",".RRRRRRRRRR.",".RRRRRRRRRR.",".RRRRRRRRRR.","..RR....RR.."],
+  eyes:{ dots:["...S.SS.S...","...SSSSSS..."], wide:["...E.SS.E...","...E.SS.E..."], wink:["...S.SS.E...","...E.SSSS..."], shades:["..EEE..EEE..","...SSSSSS..."] },
+  hats:{ none:[], pointy:[".....HH.....","....HHHH....","...HHHHHH...",".HHHHHHHHHH."], crown:["............","...A.A.A.A..","...AAAAAAA..","...AAAAAAA.."], beanie:["............","....HHHH....","...HHHHHH...","...HHHHHH..."], horns:["...A....A...","...A....A...","....A..A....","............"], halo:["....AAAA....","...A....A...","....AAAA....","............"], mushroom:["....HHHH....","..HHAHHAHH..",".HHHHHHHHHH.","............"] },
+  items:{ none:[], wand:[[11,7,'Y'],[11,8,'W'],[11,9,'W'],[11,10,'W']], staff:[[11,5,'A'],[11,6,'W'],[11,7,'W'],[11,8,'W'],[11,9,'W'],[11,10,'W'],[11,11,'W']], potion:[[0,9,'G'],[0,10,'G'],[0,11,'G'],[1,10,'G']], skull:[[0,9,'B'],[1,9,'B'],[0,10,'B'],[1,10,'B']] },
+  skins:['#f0c8a0','#b7e08a','#8ec5ff','#c9a0ff','#f3e9d2','#ffb0b0','#9a9aa8'],
+  robes:['#6a2f98','#1e6b3a','#8a1f2e','#1f4e8a','#c25a10','#2b2b36','#b8860b'],
+  hatCols:['#0a0512','#6a2f98','#d8434e','#1e6b3a','#f3e9d2','#ff8c2a'],
+  accents:['#ffd23f','#ff8c2a','#c9ff8a','#f3e9d2','#d8434e','#8ec5ff'],
+};
+const avKeys = {eyes:Object.keys(AV.eyes), hat:Object.keys(AV.hats), item:Object.keys(AV.items)};
+function randomAvatar(){ const r=a=>a[Math.random()*a.length|0]; return {skin:r(AV.skins), robe:r(AV.robes), hat:r(avKeys.hat), hatCol:r(AV.hatCols), accent:r(AV.accents), eyes:r(avKeys.eyes), item:r(avKeys.item)}; }
+function normAvatar(a){ const d=randomAvatar(); if(!a||typeof a!=='object') return d; return {skin:AV.skins.includes(a.skin)?a.skin:d.skin, robe:AV.robes.includes(a.robe)?a.robe:d.robe, hat:AV.hats[a.hat]?a.hat:'none', hatCol:AV.hatCols.includes(a.hatCol)?a.hatCol:d.hatCol, accent:AV.accents.includes(a.accent)?a.accent:d.accent, eyes:AV.eyes[a.eyes]?a.eyes:'dots', item:AV.items[a.item]?a.item:'none'}; }
+function drawAvatar(ctx, a, x, y, s){
+  a=normAvatar(a); const col={S:a.skin,R:a.robe,H:a.hatCol,A:a.accent,E:'#0a0512',Y:'#ffd23f',W:'#8a5a2b',G:'#7bd63a',B:'#f3e9d2'};
+  const put=(cx,cy,ch)=>{ if(ch==='.'||!col[ch]) return; ctx.fillStyle=col[ch]; ctx.fillRect(x+cx*s,y+cy*s,s,s); };
+  AV.body.forEach((row,r)=>[...row].forEach((ch,c)=>put(c,r,ch)));
+  AV.eyes[a.eyes].forEach((row,i)=>[...row].forEach((ch,c)=>put(c,5+i,ch)));
+  AV.hats[a.hat].forEach((row,r)=>[...row].forEach((ch,c)=>put(c,r,ch)));
+  AV.items[a.item].forEach(([c,r,ch])=>put(c,r,ch));
+}
+function avatarCanvas(a, s=3, cls='av'){ const c=document.createElement('canvas'); c.width=12*s; c.height=14*s; c.className=cls; drawAvatar(c.getContext('2d'), a, 0, 0, s); return c; }
+function avatarHTML(a, s=3){ return avatarCanvas(a,s).outerHTML.replace('<canvas','<canvas data-av="'+esc(JSON.stringify(normAvatar(a)))+'"'); }
+function hydrateAvatars(root){ root.querySelectorAll('canvas[data-av]').forEach(c=>{ try{ drawAvatar(c.getContext('2d'), JSON.parse(c.dataset.av), 0, 0, c.width/12); }catch{} }); }
+
+let myAvatar = normAvatar((()=>{ try{ return JSON.parse(store.get('coven.avatar')) }catch{ return null } })());
+function saveAvatar(){ store.set('coven.avatar', JSON.stringify(myAvatar)); drawMe(); }
+function drawMe(){
+  const pv=$('avPreview'); pv.getContext('2d').clearRect(0,0,pv.width,pv.height); drawAvatar(pv.getContext('2d'), myAvatar, 0, 0, 8);
+  const mc=$('meCanvas'); mc.getContext('2d').clearRect(0,0,mc.width,mc.height); drawAvatar(mc.getContext('2d'), myAvatar, 0, 0, 6);
+  $('meName').textContent = myName || 'you';
+}
+const AV_FIELDS = [['hat','Hat',avKeys.hat],['hatCol','Hat colour',AV.hatCols],['eyes','Eyes',avKeys.eyes],['skin','Skin',AV.skins],['robe','Robe',AV.robes],['accent','Trim',AV.accents],['item','Item',avKeys.item]];
+function buildAvatarUI(){
+  $('avOpts').innerHTML = AV_FIELDS.map(([k,label])=>`<div class="avopt"><button type="button" class="ghost" data-k="${k}" data-d="-1">◀</button><span>${label}</span><button type="button" class="ghost" data-k="${k}" data-d="1">▶</button></div>`).join('');
+  $('avOpts').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ const [k,,list]=AV_FIELDS.find(f=>f[0]===b.dataset.k); const i=list.indexOf(myAvatar[k]); myAvatar[k]=list[(i+ +b.dataset.d+list.length)%list.length]; saveAvatar(); }));
+  $('avRandom').addEventListener('click',()=>{ myAvatar=randomAvatar(); saveAvatar(); });
+  drawMe();
+}
+buildAvatarUI();
 
 // ---------- pixel art scene ----------
 const scene = $('scene'), ctx = scene.getContext('2d');
@@ -279,6 +343,9 @@ function tick(){
   for(const f of flames){ f.life--; f.y-=1.6; ctx.fillStyle=f.life>12?PAL.y:PAL.o; ctx.fillRect(Math.round(f.x/S)*S, Math.round(f.y/S)*S, f.r, f.r); }
   flames=flames.filter(f=>f.life>0);
   if(fireBoost>0) fireBoost--;
+  // the coven hovers between witch and cauldron
+  if(room && room.players){ const ids=playerIds(); const aw=12*S+6, x0=witchX()+22*S, maxW=cauldronX()-x0-4; const perRow=Math.max(1,Math.floor(maxW/aw));
+    ids.forEach((id,i)=>{ const row=Math.floor(i/perRow), col=i%perRow; const x=x0+col*aw, y=H*0.42+row*(15*S)+Math.sin(t/20+i)*4*1; drawAvatar(ctx, pav(id), x, y, S); }); }
   drawSprite(CAULD, cauldronX(), cauldronY(), CS);
   // bubbles on brew
   if(Math.random()<.25) bubbles.push({x:cauldronX()+(4+Math.random()*18)*CS, y:cauldronY()+3*CS, life:24});
@@ -323,6 +390,62 @@ const net = {
   }
 };
 
+
+// ---------- question bank ----------
+const QUESTIONS = [
+"What is the most embarrassing thing you’ve done to impress someone?",
+"What’s a lie you’ve told that became way too complicated to take back?",
+"What is your most irrational ick?",
+"What’s the pettiest reason you’ve ever disliked someone?",
+"What’s something you pretend to understand but absolutely don’t?",
+"What’s the worst date you’ve ever been on?",
+"What’s the most unhinged thing you’ve ever Googled?",
+"What’s a purchase you made that you would hide from your partner?",
+"What’s the most embarrassing DM you’ve ever sent or received?",
+"What’s a hill you’ll die on that everyone else thinks is ridiculous?",
+"What’s the dumbest thing you’ve ever cried about?",
+"What’s your biggest “I cannot believe I actually did that” moment?",
+"What’s the weirdest compliment you’ve ever received?",
+"What’s something you’ve done while drunk that you have successfully kept secret until today?",
+"What’s your most toxic trait in a relationship?",
+"What’s the most ridiculous argument you’ve ever had with your partner?",
+"What’s something your partner does that drives you INSANE but you would never admit publicly?",
+"If your search history was projected onto the wall right now, what would you be most worried about?",
+"What’s the most desperate thing you’ve done after someone stopped replying?",
+"What’s the most embarrassing thing you’ve done while trying to look cool?",
+"What’s a celebrity you would absolutely risk your relationship for? 👀",
+"If you had to date one person in this room other than your partner, who would you choose?",
+"What’s the most suspicious thing you’ve ever done that looked WAY worse than it actually was?",
+"If your partner had to be arrested for something, what would it probably be?",
+"What is one thing you would do if you knew you’d never face consequences?",
+"If everyone here swapped phones for 10 minutes, whose phone would you be most terrified to receive?",
+"What is the most questionable thing you’ve done because you were horny?",
+"If your partner disappeared for 48 hours and you couldn’t contact them, what is the FIRST thing you’d assume happened?",
+"What is something you would NEVER tell your parents about?",
+"If everyone here had to reveal one secret right now, whose secret would you most want to hear?",
+"What’s the longest you’ve gone without showering and still left the house?",
+"What’s a food opinion you have that would get you cancelled?",
+"What’s the most embarrassing thing in your camera roll right now?",
+"What’s a text you sent to the wrong person that you still think about?",
+"What’s the strangest thing you’ve done to avoid talking to someone?",
+"Who in this room would you trust least to keep a secret, and why?",
+"What’s the most childish thing you still do when nobody’s watching?",
+"What’s a habit you have that would horrify your partner if they knew?",
+"What’s the worst thing you’ve said about someone in this room behind their back?",
+"What’s the most ridiculous thing you’ve pretended to be allergic to?",
+"What’s the fakest excuse you’ve ever used to cancel plans?",
+"What’s a job you’re convinced you’d be terrible at, but secretly want to try?",
+"What’s the most embarrassing thing you’ve been caught doing?",
+"What’s a song you’d be mortified for people to know you love?",
+"If you had to swap lives with someone in this room for a week, who would you pick and what would you ruin first?",
+"What’s the most dramatic thing you’ve done out of jealousy?",
+"What’s the last thing you lied about today?",
+"What’s a weird thing you do in the shower?",
+"What’s a red flag you ignored because the person was hot?",
+"Who in this room is most likely to end up on the news, and for what?",
+];
+function pickQuestion(used){ const u=new Set(used||[]); let pool=QUESTIONS.map((q,i)=>i).filter(i=>!u.has(i)); if(!pool.length){ pool=QUESTIONS.map((q,i)=>i); u.clear(); } const i=pool[Math.random()*pool.length|0]; return {i, q:QUESTIONS[i], used:[...u, i]}; }
+
 // ---------- game state ----------
 let db=null, roomRef=null, unsub=null, room=null, code=null, myPick=null, renderedVoteRound=-1, renderedResultRound=-1;
 
@@ -335,7 +458,7 @@ async function createRoom(){
   for(let i=0;i<5;i++){
     const c = genCode(); const ref = db.doc('rooms/'+c);
     const snap = await ref.get(); if(snap.exists) continue;
-    try{ await ref.set({ name:rn, hostId:pid, phase:'lobby', round:0, question:'', createdAt:Date.now(), players:{[pid]:{name, score:0, joinedAt:Date.now()}}, answers:{}, votes:{} }, {ifAbsent:true}); }catch{ continue; }
+    try{ await ref.set({ name:rn, hostId:pid, phase:'lobby', round:0, question:'', createdAt:Date.now(), players:{[pid]:{name, avatar:myAvatar, score:0, joinedAt:Date.now()}}, answers:{}, votes:{} }, {ifAbsent:true}); }catch{ continue; }
     location.hash = 'room='+c; enterRoom(c); return;
   }
   $('entryMsg').textContent='The spirits are busy. Try again.';
@@ -347,25 +470,26 @@ async function joinRoom(c){
   const ref = db.doc('rooms/'+c); const snap = await ref.get();
   if(!snap.exists){ $('entryMsg').textContent='No coven answers to the code '+c+'.'; return; }
   const d = snap.data(); const existing = d.players && d.players[pid];
-  await ref.update({ players:{[pid]:{ name, score: existing?existing.score:0, joinedAt: existing?existing.joinedAt:Date.now() }} });
+  await ref.update({ players:{[pid]:{ name, avatar:myAvatar, score: existing?existing.score:0, joinedAt: existing?existing.joinedAt:Date.now() }} });
   location.hash='room='+c; enterRoom(c);
 }
-function saveName(n){ myName=n; store.set('coven.name', n); }
+function saveName(n){ myName=n; store.set('coven.name', n); drawMe(); }
 
 function enterRoom(c){
   code=c; roomRef=db.doc('rooms/'+c); if(unsub) unsub();
-  show($('entry'),false); show($('room'),true); show($('board'),true);
+  show($('entry'),false); show($('room'),true); show($('board'),true); show($('me'),true); drawMe();
   $('roomCode').textContent=c;
   unsub = roomRef.onSnapshot(snap=>{
     if(!snap.exists){ toast('The coven has dissolved.'); leaveRoom(); return; }
     room = snap.data(); render(); hostAutoAdvance();
   }, e=>{ setStatus('LOST CONTACT WITH THE SPIRITS ('+e.code+')'); });
 }
-function leaveRoom(){ if(unsub) unsub(); unsub=null; room=null; code=null; location.hash=''; show($('entry'),true); show($('room'),false); show($('board'),false); witchSays('Back so soon? Name yourself.'); }
+function leaveRoom(){ if(unsub) unsub(); unsub=null; room=null; code=null; location.hash=''; show($('entry'),true); show($('room'),false); show($('board'),false); show($('me'),false); witchSays('Back so soon? Name yourself.'); }
 
 const isHost = () => room && room.hostId===pid;
 const playerIds = () => Object.keys(room.players||{}).sort((a,b)=>(room.players[a].joinedAt||0)-(room.players[b].joinedAt||0));
 const pname = id => (room.players[id]||{}).name || '???';
+const pav = id => (room.players[id]||{}).avatar;
 
 function render(){
   const r=room; if(!r) return;
@@ -375,22 +499,20 @@ function render(){
   const voted = id => r.votes && r.votes[id]!=null;
   $('players').innerHTML = ids.map(id=>{
     const done = r.phase==='answering'?answered(id): r.phase==='voting'?voted(id):false;
-    return `<span class="chip ${done?'done':''} ${id===r.hostId?'host':''}"><span class="dot"></span>${esc(pname(id))}${id===pid?' (you)':''}${id===r.hostId?' ★':''}</span>`;
+    return `<span class="chip ${done?'done':''} ${id===r.hostId?'host':''}"><span class="dot"></span>${avatarHTML(pav(id),2)}${esc(pname(id))}${id===pid?' (you)':''}${id===r.hostId?' ★':''}</span>`;
   }).join('');
-  show($('phaseLobby'), r.phase==='lobby'); show($('phaseAsk'), r.phase==='asking'); show($('phaseAnswer'), r.phase==='answering'); show($('phaseVote'), r.phase==='voting'); show($('phaseResults'), r.phase==='results');
+  hydrateAvatars($('players'));
+  show($('phaseLobby'), r.phase==='lobby'); show($('phaseAnswer'), r.phase==='answering'); show($('phaseVote'), r.phase==='voting'); show($('phaseResults'), r.phase==='results');
 
   if(r.phase==='lobby'){
-    show($('startBtn'), isHost()); $('lobbyMsg').textContent = isHost()? (ids.length<2?'Share the invite link. You need at least 2 players... 3 is better.':'Everyone here? Begin when ready.') : 'Waiting for '+pname(r.hostId)+' to begin. Share the invite link so others can join.';
+    show($('startBtn'), isHost()); $('lobbyMsg').textContent = isHost()? (ids.length<2?'Share the invite link. You need at least 2 players... 3 is better.':'Everyone here? The witch has a question ready.') : 'Waiting for '+pname(r.hostId)+' to begin. Share the invite link so others can join.';
     $('startBtn').disabled = ids.length<2;
     witchSays(ids.length<2?'A coven of one? Fetch me more mortals.':`${ids.length} souls gathered. Delicious.`, false);
-  }
-  if(r.phase==='asking'){
-    show($('askForm'), isHost()); $('askMsg').textContent = isHost()?'You hold the ladle. Ask the coven something.':pname(r.hostId)+' is brewing a question…';
-    witchSays(isHost()?'Whisper a question into my cauldron.':'Hush. '+pname(r.hostId)+' is brewing something…', false);
   }
   if(r.phase==='answering'){
     witchSays(r.question);
     const mine = answered(pid); show($('answerForm'), !mine); show($('answerWait'), mine);
+    show($('skipBtn'), isHost() && Object.keys(r.answers||{}).length===0);
     $('answerRemaining').textContent = ids.filter(id=>!answered(id)).map(pname).join(', ');
   }
   if(r.phase==='voting'){
@@ -431,15 +553,17 @@ function tally(){
 function renderResults(){
   const r=room, {pts, correctOn, fooledOn}=tally(); const ids=Object.keys(r.answers||{}).sort();
   $('resultGrid').innerHTML = ids.map((id,i)=>{ const c=correctOn[id]||[], f=fooledOn[id]||[];
-    return `<div class="ans ${f.length>c.length?'winner':''}" style="animation-delay:${i*90}ms;cursor:default">${esc(r.answers[id])}<span class="tag">— ${esc(pname(id))} SAID IT</span>
+    return `<div class="ans ${f.length>c.length?'winner':''}" style="animation-delay:${i*90}ms;cursor:default">${esc(r.answers[id])}<div class="author">${avatarHTML(pav(id),3)}<span class="tag" style="margin:0">${esc(pname(id))} SAID IT</span></div>
     <div class="guessers">${c.length?`<span class="right">✔ ${c.map(pname).map(esc).join(', ')}</span>`:''}${c.length&&f.length?'<br>':''}${f.length?`<span class="wrong">✘ fooled ${f.map(pname).map(esc).join(', ')}</span>`:''}</div>
     <span class="votes">+${pts[id]||0}</span></div>`; }).join('');
+  hydrateAvatars($('resultGrid'));
   const best=Math.max(0,...Object.values(pts)); const winners=Object.keys(pts).filter(p=>pts[p]===best&&best>0).map(pname);
   witchSays(winners.length? (winners.length>1? `${winners.join(' and ')} share the round!` : `${winners[0]} takes the round. The cauldron approves.`) : 'Nobody scored? The spirits are unimpressed.');
 }
 function renderBoard(){
   const ids=playerIds().sort((a,b)=>(room.players[b].score||0)-(room.players[a].score||0));
-  $('boardBody').innerHTML = ids.map((id,i)=>`<tr class="${id===pid?'me':''}"><td class="px">${i+1}</td><td>${i===0&&(room.players[id].score||0)>0?'<span class="crown">♛</span> ':''}${esc(pname(id))}</td><td class="n">${room.players[id].score||0}</td></tr>`).join('');
+  $('boardBody').innerHTML = ids.map((id,i)=>`<tr class="${id===pid?'me':''}"><td class="px">${i+1}</td><td>${avatarHTML(pav(id),2)}${i===0&&(room.players[id].score||0)>0?'<span class="crown">♛</span> ':''}${esc(pname(id))}</td><td class="n">${room.players[id].score||0}</td></tr>`).join('');
+  hydrateAvatars($('boardBody'));
 }
 
 // host drives phase transitions when everyone has acted
@@ -463,14 +587,15 @@ $('createBtn').onclick = createRoom;
 $('joinBtn').onclick = ()=>{ const c=$('codeInput').value.trim().toUpperCase(); if(!c){ $('entryMsg').textContent='Enter a room code.'; return;} joinRoom(c); };
 $('copyBtn').onclick = async ()=>{ const url = location.origin+location.pathname+'#room='+code; try{ await navigator.clipboard.writeText(url); toast('Invite link copied. Code: '+code); }catch{ prompt('Copy this invite link', url); } };
 $('leaveBtn').onclick = async ()=>{ if(room && room.players && Object.keys(room.players).length>1){ const p={}; for(const id of Object.keys(room.players)) if(id!==pid) p[id]=room.players[id]; const hostId = room.hostId===pid ? Object.keys(p)[0] : room.hostId; await hardSet({players:p, hostId}).catch(()=>{}); } leaveRoom(); };
-$('startBtn').onclick = ()=> hardSet({ phase:'asking', round:1, question:'', answers:{}, votes:{} });
-$('askBtn').onclick = async ()=>{ const q=$('questionInput').value.trim(); if(!q) return; $('questionInput').value=''; await hardSet({ phase:'answering', question:q, answers:{}, votes:{} }); };
+function brew(round){ const {q,used}=pickQuestion(room.used); return hardSet({ phase:'answering', round, question:q, used, answers:{}, votes:{} }); }
+$('startBtn').onclick = ()=> brew(1);
+$('skipBtn').onclick = ()=> brew(room.round||1);
 $('answerBtn').onclick = async ()=>{ const a=$('answerInput').value.trim(); if(!a) return; $('answerInput').value=''; await roomRef.update({ answers:{[pid]:a} }); toast('Tossed in!'); };
 $('guessBtn').onclick = lockGuesses;
-$('nextBtn').onclick = ()=> hardSet({ phase:'asking', round:(room.round||0)+1, question:'', answers:{}, votes:{} });
+$('nextBtn').onclick = ()=> brew((room.round||0)+1);
 $('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') (codeFromHash()||$('codeInput').value)?$('joinBtn').click():$('createBtn').click(); });
 $('codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('joinBtn').click(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey && e.target.tagName==='TEXTAREA'){ e.preventDefault(); if(e.target.id==='answerInput') $('answerBtn').click(); if(e.target.id==='questionInput') $('askBtn').click(); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey && e.target.tagName==='TEXTAREA'){ e.preventDefault(); if(e.target.id==='answerInput') $('answerBtn').click(); } });
 
 // ---------- boot ----------
 (async ()=>{
