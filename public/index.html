@@ -92,18 +92,20 @@
   .crown{color:var(--ember)}
 
   /* avatars */
-  .avbuild{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-top:12px}
+  .avbuild{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;margin-top:12px}
+  #avModal{position:fixed;inset:0;z-index:10;background:rgba(10,5,18,.8);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+  .avdialog{width:min(100%,720px);max-height:100%;overflow:auto}
   .avprev{background:var(--ink);border:3px solid var(--bruise);padding:8px;display:flex;align-items:center;justify-content:center}
   .avprev canvas{animation:hover 2s ease-in-out infinite}
   .avopts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
   .avopt{display:flex;align-items:center;gap:4px;font-size:19px}
-  .avopt span{flex:1;text-align:center;color:var(--bone-dim);font-family:var(--px);font-size:8px;text-transform:uppercase}
+  .avopt span{flex:1;min-width:0;overflow:hidden;text-align:center;color:var(--bone-dim);font-family:var(--px);font-size:8px;text-transform:uppercase}
   .avopt button{padding:8px 10px;font-size:10px}
   .av{image-rendering:pixelated;vertical-align:middle}
-  .chip .av{width:24px;height:28px}
-  td .av{width:28px;height:32px;margin-right:8px}
+  .chip .av{width:24px;height:36px}
+  td .av{width:28px;height:42px;margin-right:8px}
   .ans .author{display:flex;align-items:center;gap:8px;margin-top:8px}
-  .ans .author .av{width:36px;height:42px}
+  .ans .author .av{width:36px;height:54px}
   #me{position:fixed;right:18px;bottom:18px;z-index:4;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
   #me canvas{animation:hover 2.4s ease-in-out infinite;filter:drop-shadow(0 6px 0 rgba(0,0,0,.5))}
   #me .tag{font-family:var(--px);font-size:8px;color:var(--bone);background:var(--ink);padding:4px 6px;border:2px solid var(--bruise)}
@@ -134,11 +136,11 @@ body{margin:0}
     <div class="row">
       <input id="nameInput" class="grow" maxlength="20" placeholder="Your name" autocomplete="off">
     </div>
-    <div class="avbuild">
-      <div class="avprev"><canvas id="avPreview" class="av" width="96" height="112"></canvas></div>
-      <div>
-        <div class="avopts" id="avOpts"></div>
-        <div class="row" style="margin-top:8px"><button id="avRandom" class="ghost">Randomise</button></div>
+    <div class="row" style="margin-top:12px;align-items:center">
+      <div class="avprev"><canvas id="avPreview" class="av" width="96" height="144"></canvas></div>
+      <div class="row" style="flex-direction:column;align-items:flex-start">
+        <button id="avOpen">Customise character</button>
+        <button id="avRandomQuick" class="ghost">Randomise</button>
       </div>
     </div>
     <div class="row" style="margin-top:12px">
@@ -196,7 +198,19 @@ body{margin:0}
   <p class="status" id="connStatus">SUMMONING THE SPIRITS…</p>
 </div>
 <div class="toast" id="toast"></div>
-<div id="me" class="hidden"><canvas id="meCanvas" class="av" width="72" height="84"></canvas><span class="tag" id="meName"></span></div>
+<div id="avModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="avTitle">
+  <div class="card avdialog">
+    <h2 id="avTitle">Make your face</h2>
+    <div class="avbuild">
+      <div class="avprev"><canvas id="avModalPreview" class="av" width="120" height="180"></canvas></div>
+      <div>
+        <div class="avopts" id="avOpts"></div>
+        <div class="row" style="margin-top:12px"><button id="avRandom" class="ember">Randomise everything</button><button id="avDone">Done</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="me" class="hidden"><canvas id="meCanvas" class="av" width="72" height="108"></canvas><span class="tag" id="meName"></span></div>
 
 <script>
 (() => {
@@ -224,42 +238,82 @@ function witchSays(text, smoke=true){
 
 // ---------- avatars ----------
 const AV = {
-  body:["............","............","............","....SSSS....","...SSSSSS...","...SSSSSS...","...SSSSSS...","....SSSS....","..RRRRRRRR..",".RRRRRRRRRR.",".RRRRRRRRRR.",".RRRRRRRRRR.",".RRRRRRRRRR.","..RR....RR.."],
-  eyes:{ dots:["...S.SS.S...","...SSSSSS..."], wide:["...E.SS.E...","...E.SS.E..."], wink:["...S.SS.E...","...E.SSSS..."], shades:["..EEE..EEE..","...SSSSSS..."] },
-  hats:{ none:[], pointy:[".....HH.....","....HHHH....","...HHHHHH...",".HHHHHHHHHH."], crown:["............","...A.A.A.A..","...AAAAAAA..","...AAAAAAA.."], beanie:["............","....HHHH....","...HHHHHH...","...HHHHHH..."], horns:["...A....A...","...A....A...","....A..A....","............"], halo:["....AAAA....","...A....A...","....AAAA....","............"], mushroom:["....HHHH....","..HHAHHAHH..",".HHHHHHHHHH.","............"] },
-  items:{ none:[], wand:[[11,7,'Y'],[11,8,'W'],[11,9,'W'],[11,10,'W']], staff:[[11,5,'A'],[11,6,'W'],[11,7,'W'],[11,8,'W'],[11,9,'W'],[11,10,'W'],[11,11,'W']], potion:[[0,9,'G'],[0,10,'G'],[0,11,'G'],[1,10,'G']], skull:[[0,9,'B'],[1,9,'B'],[0,10,'B'],[1,10,'B']] },
-  skins:['#f0c8a0','#b7e08a','#8ec5ff','#c9a0ff','#f3e9d2','#ffb0b0','#9a9aa8'],
-  robes:['#6a2f98','#1e6b3a','#8a1f2e','#1f4e8a','#c25a10','#2b2b36','#b8860b'],
-  hatCols:['#0a0512','#6a2f98','#d8434e','#1e6b3a','#f3e9d2','#ff8c2a'],
-  accents:['#ffd23f','#ff8c2a','#c9ff8a','#f3e9d2','#d8434e','#8ec5ff'],
+  // 12 x 18 character: face rows 0-11, body 12-17. S skin, T shirt, H hair, W eye white, I iris, E dark line, M mouth, G glasses, A earring, P blush, F freckle
+  face:["............","............","...SSSSSS...","..SSSSSSSS..","..SSSSSSSS..","..SSSSSSSS..",".SSSSSSSSSS.",".SSSSSSSSSS.","..SSSSSSSS..","..SSSSSSSS..","...SSSSSS...","....SSSS....",".....SS.....","...TTTTTT...","..TTTTTTTT..","..TTTTTTTT..","..TSTTTTST..","...LL..LL...","...LL..LL..."],
+  eyes:{ // rows 4-6
+    round:["............","...WW..WW...","...II..II..."],
+    big:["..WWW..WWW..","..WIW..WIW..","..WWW..WWW.."],
+    sleepy:["............","...EE..EE...","...II..II..."],
+    wink:["............","...WW..EEE..","...II......."],
+    lashes:["...E.E.E.E..","...WW..WW...","...II..II..."],
+    dots:["............","............","...II..II..."],
+  },
+  mouths:{ // rows 8-9
+    smile:["...E....E...","....EEEE...."], flat:["............","....EEEE...."], grin:["....EEEE....","....MMMM...."], smirk:["............",".....EEE...."], pout:["............","....MM......"], surprised:["....EEE.....","....EME....."],
+  },
+  hair:{ // rows 0-10
+    none:[],
+    short:["............","...HHHHHH...","..HHHHHHHH..",".HHHHHHHHHH.",".HH......HH."],
+    bob:["............","...HHHHHH...","..HHHHHHHH..",".HHHHHHHHHH.",".HH......HH.",".HH......HH.","HHH......HHH","HHH......HHH","HHH......HHH",".HH......HH."],
+    long:["............","...HHHHHH...","..HHHHHHHH..",".HHHHHHHHHH.",".HH......HH.",".HH......HH.","HHH......HHH","HHH......HHH","HHH......HHH","HHH......HHH","HHH......HHH","HHH......HHH"],
+    bun:["....HHHH....","...HHHHHH...","..HHHHHHHH..",".HHHHHHHHHH.",".HH......HH."],
+    mohawk:[".....HH.....",".....HH.....","....HHHH....","...HHHHHH...","..HH....HH.."],
+    curly:["..H.HHHH.H..",".HHHHHHHHHH.","HHHHHHHHHHHH","HHHHHHHHHHHH","HH.HHHHHH.HH","H..HHHHHH..H","H...H..H...H"],
+    spiky:["..H..H..H.H.","..HH.HH.HHH.",".HHHHHHHHHH.",".HHHHHHHHHH.",".HH......HH."],
+    fringe:["............","...HHHHHH...","..HHHHHHHH..",".HHHHHHHHHH.",".HHHHH.HHHH.",".HH......HH."],
+    pigtails:["............","...HHHHHH...","..HHHHHHHH..",".HHHHHHHHHH.","HHH......HHH","HH........HH","HH........HH","HH........HH",".H........H."],
+    cap:["....HHHH....","...HHHHHH...","..HHHHHHHH..","HHHHHHHHHHHH","............"],
+  },
+  glasses:{ // rows 4-6
+    none:[], round:["............","..GGG..GGG..","..G.GGGG.G..","..GGG..GGG.."], square:["............","..GGGG.GGGG.","..G..GGG..G.","..GGGG.GGGG."], shades:["............","..GGG..GGG..","..GGGGGGGGG.","...GG..GG..."],
+  },
+  earrings:{ // rows 7-9, ears at cols 1 and 10
+    none:[], studs:[[1,7],[10,7]], hoops:[[1,7],[10,7],[1,8],[10,8],[2,8],[9,8]], dangly:[[1,7],[10,7],[1,8],[10,8],[1,9],[10,9]],
+  },
+  marks:{ none:[], freckles:[[3,7,'F'],[5,7,'F'],[6,7,'F'],[8,7,'F']], blush:[[3,7,'P'],[4,7,'P'],[7,7,'P'],[8,7,'P']], beauty:[[8,8,'F']] },
+  skins:['#f0c8a0','#e0a878','#c68642','#8d5524','#5c3a1e','#b7e08a','#8ec5ff','#c9a0ff'],
+  hairCols:['#0a0512','#3b2314','#8a5a2b','#d9a05b','#f3e9d2','#d8434e','#7bd63a','#5b9cff','#ff6bd6','#9a9aa8'],
+  eyeCols:['#3b2314','#1f4e8a','#1e6b3a','#7bd63a','#c9a0ff','#0a0512','#ff8c2a'],
+  shirts:['#6a2f98','#1e6b3a','#8a1f2e','#1f4e8a','#c25a10','#2b2b36','#b8860b','#f3e9d2'],
+  jewel:['#ffd23f','#f3e9d2','#7bd63a','#ff6bd6'],
+  glassCols:['#0a0512','#ffd23f','#d8434e','#f3e9d2'],
 };
-const avKeys = {eyes:Object.keys(AV.eyes), hat:Object.keys(AV.hats), item:Object.keys(AV.items)};
-function randomAvatar(){ const r=a=>a[Math.random()*a.length|0]; return {skin:r(AV.skins), robe:r(AV.robes), hat:r(avKeys.hat), hatCol:r(AV.hatCols), accent:r(AV.accents), eyes:r(avKeys.eyes), item:r(avKeys.item)}; }
-function normAvatar(a){ const d=randomAvatar(); if(!a||typeof a!=='object') return d; return {skin:AV.skins.includes(a.skin)?a.skin:d.skin, robe:AV.robes.includes(a.robe)?a.robe:d.robe, hat:AV.hats[a.hat]?a.hat:'none', hatCol:AV.hatCols.includes(a.hatCol)?a.hatCol:d.hatCol, accent:AV.accents.includes(a.accent)?a.accent:d.accent, eyes:AV.eyes[a.eyes]?a.eyes:'dots', item:AV.items[a.item]?a.item:'none'}; }
+const avKeys = {eyes:Object.keys(AV.eyes), mouth:Object.keys(AV.mouths), hair:Object.keys(AV.hair), glasses:Object.keys(AV.glasses), earrings:Object.keys(AV.earrings), mark:Object.keys(AV.marks)};
+function randomAvatar(){ const r=a=>a[Math.random()*a.length|0]; return {skin:r(AV.skins), hair:r(avKeys.hair), hairCol:r(AV.hairCols), eyes:r(avKeys.eyes), eyeCol:r(AV.eyeCols), mouth:r(avKeys.mouth), glasses:Math.random()<.6?'none':r(avKeys.glasses), glassCol:r(AV.glassCols), earrings:r(avKeys.earrings), jewel:r(AV.jewel), mark:r(avKeys.mark), shirt:r(AV.shirts)}; }
+function normAvatar(a){ const d=randomAvatar(); if(!a||typeof a!=='object') return d; const pick=(v,list,def)=>list.includes(v)?v:def;
+  return {skin:pick(a.skin,AV.skins,d.skin), hair:pick(a.hair,avKeys.hair,'short'), hairCol:pick(a.hairCol,AV.hairCols,d.hairCol), eyes:pick(a.eyes,avKeys.eyes,'round'), eyeCol:pick(a.eyeCol,AV.eyeCols,d.eyeCol), mouth:pick(a.mouth,avKeys.mouth,'smile'), glasses:pick(a.glasses,avKeys.glasses,'none'), glassCol:pick(a.glassCol,AV.glassCols,'#0a0512'), earrings:pick(a.earrings,avKeys.earrings,'none'), jewel:pick(a.jewel,AV.jewel,'#ffd23f'), mark:pick(a.mark,avKeys.mark,'none'), shirt:pick(a.shirt,AV.shirts,d.shirt)}; }
 function drawAvatar(ctx, a, x, y, s){
-  a=normAvatar(a); const col={S:a.skin,R:a.robe,H:a.hatCol,A:a.accent,E:'#0a0512',Y:'#ffd23f',W:'#8a5a2b',G:'#7bd63a',B:'#f3e9d2'};
+  a=normAvatar(a); const col={S:a.skin,T:a.shirt,H:a.hairCol,W:'#f3e9d2',I:a.eyeCol,E:'#0a0512',M:'#8a1f2e',G:a.glassCol,A:a.jewel,P:'#ff8c9a',F:'#8a5a2b',L:'#1e1030'};
   const put=(cx,cy,ch)=>{ if(ch==='.'||!col[ch]) return; ctx.fillStyle=col[ch]; ctx.fillRect(x+cx*s,y+cy*s,s,s); };
-  AV.body.forEach((row,r)=>[...row].forEach((ch,c)=>put(c,r,ch)));
-  AV.eyes[a.eyes].forEach((row,i)=>[...row].forEach((ch,c)=>put(c,5+i,ch)));
-  AV.hats[a.hat].forEach((row,r)=>[...row].forEach((ch,c)=>put(c,r,ch)));
-  AV.items[a.item].forEach(([c,r,ch])=>put(c,r,ch));
+  AV.face.forEach((row,r)=>[...row].forEach((ch,c)=>put(c,r,ch)));
+  AV.eyes[a.eyes].forEach((row,i)=>[...row].forEach((ch,c)=>put(c,4+i,ch)));
+  AV.marks[a.mark].forEach(([c,r,ch])=>put(c,r,ch));
+  AV.mouths[a.mouth].forEach((row,i)=>[...row].forEach((ch,c)=>put(c,8+i,ch)));
+  AV.hair[a.hair].forEach((row,r)=>[...row].forEach((ch,c)=>put(c,r,ch)));
+  AV.glasses[a.glasses].forEach((row,i)=>[...row].forEach((ch,c)=>put(c,4+i,ch)));
+  AV.earrings[a.earrings].forEach(([c,r])=>put(c,r,'A'));
 }
-function avatarCanvas(a, s=3, cls='av'){ const c=document.createElement('canvas'); c.width=12*s; c.height=14*s; c.className=cls; drawAvatar(c.getContext('2d'), a, 0, 0, s); return c; }
+function avatarCanvas(a, s=3, cls='av'){ const c=document.createElement('canvas'); c.width=12*s; c.height=18*s; c.className=cls; drawAvatar(c.getContext('2d'), a, 0, 0, s); return c; }
 function avatarHTML(a, s=3){ return avatarCanvas(a,s).outerHTML.replace('<canvas','<canvas data-av="'+esc(JSON.stringify(normAvatar(a)))+'"'); }
 function hydrateAvatars(root){ root.querySelectorAll('canvas[data-av]').forEach(c=>{ try{ drawAvatar(c.getContext('2d'), JSON.parse(c.dataset.av), 0, 0, c.width/12); }catch{} }); }
 
 let myAvatar = normAvatar((()=>{ try{ return JSON.parse(store.get('coven.avatar')) }catch{ return null } })());
 function saveAvatar(){ store.set('coven.avatar', JSON.stringify(myAvatar)); drawMe(); }
 function drawMe(){
-  const pv=$('avPreview'); pv.getContext('2d').clearRect(0,0,pv.width,pv.height); drawAvatar(pv.getContext('2d'), myAvatar, 0, 0, 8);
+  for(const [id,sc] of [['avPreview',8],['avModalPreview',10]]){ const pv=$(id); pv.getContext('2d').clearRect(0,0,pv.width,pv.height); drawAvatar(pv.getContext('2d'), myAvatar, 0, 0, sc); }
   const mc=$('meCanvas'); mc.getContext('2d').clearRect(0,0,mc.width,mc.height); drawAvatar(mc.getContext('2d'), myAvatar, 0, 0, 6);
   $('meName').textContent = myName || 'you';
 }
-const AV_FIELDS = [['hat','Hat',avKeys.hat],['hatCol','Hat colour',AV.hatCols],['eyes','Eyes',avKeys.eyes],['skin','Skin',AV.skins],['robe','Robe',AV.robes],['accent','Trim',AV.accents],['item','Item',avKeys.item]];
+const AV_FIELDS = [['hair','Hair',avKeys.hair],['hairCol','Hair colour',AV.hairCols],['eyes','Eyes',avKeys.eyes],['eyeCol','Eye colour',AV.eyeCols],['mouth','Mouth',avKeys.mouth],['glasses','Glasses',avKeys.glasses],['glassCol','Frames',AV.glassCols],['earrings','Earrings',avKeys.earrings],['jewel','Metal',AV.jewel],['mark','Marks',avKeys.mark],['skin','Skin',AV.skins],['shirt','Shirt',AV.shirts]];
 function buildAvatarUI(){
   $('avOpts').innerHTML = AV_FIELDS.map(([k,label])=>`<div class="avopt"><button type="button" class="ghost" data-k="${k}" data-d="-1">◀</button><span>${label}</span><button type="button" class="ghost" data-k="${k}" data-d="1">▶</button></div>`).join('');
   $('avOpts').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ const [k,,list]=AV_FIELDS.find(f=>f[0]===b.dataset.k); const i=list.indexOf(myAvatar[k]); myAvatar[k]=list[(i+ +b.dataset.d+list.length)%list.length]; saveAvatar(); }));
   $('avRandom').addEventListener('click',()=>{ myAvatar=randomAvatar(); saveAvatar(); });
+  $('avRandomQuick').addEventListener('click',()=>{ myAvatar=randomAvatar(); saveAvatar(); });
+  $('avOpen').addEventListener('click',()=>{ show($('avModal'),true); $('avDone').focus(); });
+  $('avDone').addEventListener('click',()=>{ show($('avModal'),false); $('avOpen').focus(); });
+  $('avModal').addEventListener('click',e=>{ if(e.target===$('avModal')) show($('avModal'),false); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !$('avModal').classList.contains('hidden')) show($('avModal'),false); });
   drawMe();
 }
 buildAvatarUI();
@@ -345,7 +399,7 @@ function tick(){
   if(fireBoost>0) fireBoost--;
   // the coven hovers between witch and cauldron
   if(room && room.players){ const ids=playerIds(); const aw=12*S+6, x0=witchX()+22*S, maxW=cauldronX()-x0-4; const perRow=Math.max(1,Math.floor(maxW/aw));
-    ids.forEach((id,i)=>{ const row=Math.floor(i/perRow), col=i%perRow; const x=x0+col*aw, y=H*0.42+row*(15*S)+Math.sin(t/20+i)*4*1; drawAvatar(ctx, pav(id), x, y, S); }); }
+    ids.forEach((id,i)=>{ const row=Math.floor(i/perRow), col=i%perRow; const x=x0+col*aw, y=H*0.36+row*(19*S)+Math.sin(t/20+i)*4*1; drawAvatar(ctx, pav(id), x, y, S); }); }
   drawSprite(CAULD, cauldronX(), cauldronY(), CS);
   // bubbles on brew
   if(Math.random()<.25) bubbles.push({x:cauldronX()+(4+Math.random()*18)*CS, y:cauldronY()+3*CS, life:24});
