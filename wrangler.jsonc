@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "cauldron-of-answers",
+  "name": "whosaid",
   "main": "src/index.js",
   "account_id": "27cf5b275796334db018b81d16794221",
   "compatibility_date": "2026-09-01",

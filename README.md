@@ -1,4 +1,4 @@
-# Cauldron of Answers
+# Who Said?
 
 A realtime multiplayer party game. An 8-bit witch asks the coven a question, everyone tosses an answer into her cauldron, the cauldron flings the answers back out, and the room votes on the best one. Points go on the leaderboard.
 
