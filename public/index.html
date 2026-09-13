@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Who Said?</title>
+<meta name="description" content="A realtime party game. The witch asks, everyone answers, then guess who said what.">
+<meta property="og:title" content="Who Said?">
+<meta property="og:description" content="A realtime party game. The witch asks, everyone answers, then guess who said what.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://whosaid.ratul-maharaj.workers.dev/">
+<meta property="og:image" content="https://whosaid.ratul-maharaj.workers.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://whosaid.ratul-maharaj.workers.dev/og.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
 <style>
   :root{
@@ -42,7 +52,7 @@
   .hidden{display:none!important}
 
   /* stage */
-  .stage{position:relative;height:300px;overflow:visible}
+  .stage{position:relative;height:340px;overflow:visible}
   #scene{width:100%;height:100%;display:block}
   #bubble{position:absolute;left:50%;top:6px;transform:translateX(-50%);width:min(92%,560px);
     background:var(--bone);color:var(--ink);border:4px solid var(--ink);padding:14px 16px;font-size:26px;line-height:1.15;text-align:center;
@@ -85,7 +95,7 @@
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);border:3px solid var(--moss);color:var(--bone);padding:10px 14px;z-index:5;font-size:20px;opacity:0;transition:opacity .3s;pointer-events:none}
   .toast.show{opacity:1}
   .blink{animation:blink 1s steps(2) infinite} @keyframes blink{50%{opacity:.2}}
-  @media (max-width:520px){.stage{height:250px} #bubble{font-size:21px}}
+  @media (max-width:520px){.stage{height:290px} #bubble{font-size:21px}}
 body{margin:0}
 </style>
 </head>
@@ -248,12 +258,13 @@ const CAULD = [
 function drawSprite(rows, x, y, s){ for(let r=0;r<rows.length;r++) for(let c=0;c<rows[r].length;c++){ const ch=rows[r][c]; if(ch==='.') continue; ctx.fillStyle=PAL[ch]||'#f0f'; ctx.fillRect(x+c*s, y+r*s, s, s); } }
 
 let W=0,H=0,S=4, smoke=[], bubbles=[], flames=[], t=0, fireBoost=0;
-function resize(){ const r=scene.parentElement.getBoundingClientRect(); W=scene.width=Math.floor(r.width); H=scene.height=Math.floor(r.height); S = W<520?3:4; }
+let CS=8;
+function resize(){ const r=scene.parentElement.getBoundingClientRect(); W=scene.width=Math.floor(r.width); H=scene.height=Math.floor(r.height); S = W<520?3:4; CS = S*2; }
 window.addEventListener('resize', resize); resize();
-function puffSmoke(n=60){ const cx = cauldronX()+13*S, cy = cauldronY()+3*S; for(let i=0;i<n;i++) smoke.push({x:cx+(Math.random()-.5)*20*S, y:cy, vx:(Math.random()-.5)*1.2, vy:-(1+Math.random()*2), r:S*(2+Math.random()*3), a:.9, hue:Math.random()<.5?'#c9ff8a':'#f3e9d2'}); fireBoost=40; }
-function cauldronX(){ return Math.floor(W*0.62 - 13*S); }
-function cauldronY(){ return H - 18*S - 6; }
-function witchX(){ return Math.floor(W*0.28 - 10*S); }
+function puffSmoke(n=60){ const cx = cauldronX()+13*CS, cy = cauldronY()+3*CS; for(let i=0;i<n;i++) smoke.push({x:cx+(Math.random()-.5)*20*CS, y:cy, vx:(Math.random()-.5)*1.2, vy:-(1+Math.random()*2), r:S*(2+Math.random()*3), a:.9, hue:Math.random()<.5?'#c9ff8a':'#f3e9d2'}); fireBoost=40; }
+function cauldronX(){ return Math.floor(W*0.64 - 13*CS); }
+function cauldronY(){ return H - 18*CS - 6; }
+function witchX(){ return Math.floor(W*0.22 - 10*S); }
 function tick(){
   t++; ctx.clearRect(0,0,W,H);
   // ground
@@ -264,17 +275,17 @@ function tick(){
   // wand sparkle
   if(t%10<5){ ctx.fillStyle=PAL.y; ctx.fillRect(witchX()+16*S, wy+18*S, S, S); }
   // flames under cauldron
-  if(Math.random()<.6+fireBoost/60) flames.push({x:cauldronX()+ (6+Math.random()*14)*S, y:H-10, life:14+Math.random()*10, r:S*(1+Math.random())});
+  if(Math.random()<.6+fireBoost/60) flames.push({x:cauldronX()+ (6+Math.random()*14)*CS, y:H-10, life:18+Math.random()*12, r:S*(1.5+Math.random()*1.5)});
   for(const f of flames){ f.life--; f.y-=1.6; ctx.fillStyle=f.life>12?PAL.y:PAL.o; ctx.fillRect(Math.round(f.x/S)*S, Math.round(f.y/S)*S, f.r, f.r); }
   flames=flames.filter(f=>f.life>0);
   if(fireBoost>0) fireBoost--;
-  drawSprite(CAULD, cauldronX(), cauldronY(), S);
+  drawSprite(CAULD, cauldronX(), cauldronY(), CS);
   // bubbles on brew
-  if(Math.random()<.25) bubbles.push({x:cauldronX()+(4+Math.random()*18)*S, y:cauldronY()+3*S, life:20});
-  for(const b of bubbles){ b.life--; b.y-=.4; ctx.fillStyle=b.life>10?PAL.G:PAL.w; ctx.fillRect(Math.round(b.x/S)*S, Math.round(b.y/S)*S, S, S); }
+  if(Math.random()<.25) bubbles.push({x:cauldronX()+(4+Math.random()*18)*CS, y:cauldronY()+3*CS, life:24});
+  for(const b of bubbles){ b.life--; b.y-=.4; ctx.fillStyle=b.life>10?PAL.G:PAL.w; ctx.fillRect(Math.round(b.x/S)*S, Math.round(b.y/S)*S, CS, CS); }
   bubbles=bubbles.filter(b=>b.life>0);
   // ambient wisps
-  if(Math.random()<.15) smoke.push({x:cauldronX()+(6+Math.random()*14)*S, y:cauldronY()+2*S, vx:(Math.random()-.5)*.3, vy:-(.4+Math.random()*.4), r:S*2, a:.35, hue:'#c9ff8a'});
+  if(Math.random()<.15) smoke.push({x:cauldronX()+(6+Math.random()*14)*CS, y:cauldronY()+2*CS, vx:(Math.random()-.5)*.3, vy:-(.4+Math.random()*.4), r:S*2, a:.35, hue:'#c9ff8a'});
   for(const p of smoke){ p.x+=p.vx+Math.sin((t+p.y)/15)*.3; p.y+=p.vy; p.a-=.008; p.r+=.15; ctx.globalAlpha=Math.max(0,p.a); ctx.fillStyle=p.hue; ctx.fillRect(Math.round(p.x/S)*S, Math.round(p.y/S)*S, Math.round(p.r/S)*S||S, Math.round(p.r/S)*S||S); }
   ctx.globalAlpha=1; smoke=smoke.filter(p=>p.a>0 && p.y>-40);
   requestAnimationFrame(tick);
