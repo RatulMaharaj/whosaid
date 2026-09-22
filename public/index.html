@@ -441,27 +441,27 @@ const QUESTIONS = [
 "What’s something you pretend to understand but absolutely don’t?",
 "What’s the worst date you’ve ever been on?",
 "What’s the most unhinged thing you’ve ever Googled?",
-"What’s a purchase you made that you would hide from your partner?",
+"What’s a purchase you made that you’d hide from everyone you know?",
 "What’s the most embarrassing DM you’ve ever sent or received?",
 "What’s a hill you’ll die on that everyone else thinks is ridiculous?",
 "What’s the dumbest thing you’ve ever cried about?",
 "What’s your biggest “I cannot believe I actually did that” moment?",
 "What’s the weirdest compliment you’ve ever received?",
 "What’s something you’ve done while drunk that you have successfully kept secret until today?",
-"What’s your most toxic trait in a relationship?",
-"What’s the most ridiculous argument you’ve ever had with your partner?",
-"What’s something your partner does that drives you INSANE but you would never admit publicly?",
+"What’s your most toxic trait?",
+"What’s the most ridiculous argument you’ve ever had?",
+"What’s a tiny thing other people do that drives you INSANE?",
 "If your search history was projected onto the wall right now, what would you be most worried about?",
 "What’s the most desperate thing you’ve done after someone stopped replying?",
 "What’s the most embarrassing thing you’ve done while trying to look cool?",
-"What’s a celebrity you would absolutely risk your relationship for? 👀",
-"If you had to date one person in this room other than your partner, who would you choose?",
+"What celebrity would you drop everything for? 👀",
+"If you had to be stranded on an island with one person in this room, who would you pick?",
 "What’s the most suspicious thing you’ve ever done that looked WAY worse than it actually was?",
-"If your partner had to be arrested for something, what would it probably be?",
+"If you got arrested tomorrow, what would it probably be for?",
 "What is one thing you would do if you knew you’d never face consequences?",
 "If everyone here swapped phones for 10 minutes, whose phone would you be most terrified to receive?",
 "What is the most questionable thing you’ve done because you were horny?",
-"If your partner disappeared for 48 hours and you couldn’t contact them, what is the FIRST thing you’d assume happened?",
+"If you disappeared for 48 hours, what would everyone here assume happened?",
 "What is something you would NEVER tell your parents about?",
 "If everyone here had to reveal one secret right now, whose secret would you most want to hear?",
 "What’s the longest you’ve gone without showering and still left the house?",
@@ -471,7 +471,7 @@ const QUESTIONS = [
 "What’s the strangest thing you’ve done to avoid talking to someone?",
 "Who in this room would you trust least to keep a secret, and why?",
 "What’s the most childish thing you still do when nobody’s watching?",
-"What’s a habit you have that would horrify your partner if they knew?",
+"What’s a habit you have that would horrify people if they knew?",
 "What’s the worst thing you’ve said about someone in this room behind their back?",
 "What’s the most ridiculous thing you’ve pretended to be allergic to?",
 "What’s the fakest excuse you’ve ever used to cancel plans?",
@@ -570,8 +570,11 @@ function render(){
   setStatus(isHost()?'YOU ARE THE HOST ★ · LIVE':'LIVE · CONNECTED TO THE COVEN');
 }
 
+// shuffle answers per round (same order for everyone) so slot position doesn't give the author away
+function answerOrder(r){ const h=s=>{ let x=2166136261; for(const c of s){ x=Math.imul(x^c.charCodeAt(0),16777619); } return x>>>0; };
+  const seed=r.round+'|'+r.question; return Object.keys(r.answers||{}).sort((a,b)=>h(seed+a)-h(seed+b)||(a<b?-1:1)); }
 function renderVoteGrid(){
-  const r=room; const ids = Object.keys(r.answers||{}).sort(); const players=playerIds();
+  const r=room; const ids = answerOrder(r); const players=playerIds();
   $('voteGrid').innerHTML = ids.map((id,i)=>`<div class="ans ${id===pid?'mine':''}" data-id="${id}" style="animation-delay:${i*90}ms;cursor:default">${esc(r.answers[id])}${id===pid?'<span class="tag">YOURS. NO GUESSING NEEDED.</span>':
     `<select id="guess-${id}" data-for="${id}"><option value="">Who said this?</option>${players.filter(p=>p!==pid).map(p=>`<option value="${p}">${esc(pname(p))}</option>`).join('')}</select>`}</div>`).join('');
 }
@@ -592,7 +595,7 @@ function tally(){
   return {pts, correctOn, fooledOn};
 }
 function renderResults(){
-  const r=room, {pts, correctOn, fooledOn}=tally(); const ids=Object.keys(r.answers||{}).sort();
+  const r=room, {pts, correctOn, fooledOn}=tally(); const ids=answerOrder(r);
   $('resultGrid').innerHTML = ids.map((id,i)=>{ const c=correctOn[id]||[], f=fooledOn[id]||[];
     return `<div class="ans ${f.length>c.length?'winner':''}" style="animation-delay:${i*90}ms;cursor:default">${esc(r.answers[id])}<div class="author">${avatarHTML(pav(id),3)}<span class="tag" style="margin:0">${esc(pname(id))} SAID IT</span></div>
     <div class="guessers">${c.length?`<span class="right">✔ ${c.map(pname).map(esc).join(', ')}</span>`:''}${c.length&&f.length?'<br>':''}${f.length?`<span class="wrong">✘ fooled ${f.map(pname).map(esc).join(', ')}</span>`:''}</div>
